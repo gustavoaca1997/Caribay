@@ -3,13 +3,14 @@ local re = require"relabel"
 local M = {}
 
 -- TODO: Insert error labels for better error reporting
+-- TODO: Fragment keyword
 
 local peg_grammar = [=[
     S       <- {| rule+ !. |}
 
     spaces  <- %s*
 
-    LEX_ID  <- {| {:tag: '' -> 'lex_sym' :}    { [A-Z][A-Z_]* } spaces |}
+    LEX_ID  <- {| {:tag: '' -> 'lex_sym' :}    { [A-Z][A-Z0-9_]* } spaces |}
     SYN_ID  <- {| {:tag: '' -> 'syn_sym' :}    { [a-z][a-zA-Z0-9_]* } spaces |}
     name    <- LEX_ID / SYN_ID
 
@@ -37,17 +38,17 @@ local peg_grammar = [=[
     and     <- {| {:tag: '' -> 'and_exp' :}    AND_OP atom |}
     not     <- {| {:tag: '' -> 'not_exp' :}    NOT_OP atom |}
 
-    atom    <- class / name / LPAR ord RPAR / token
+    atom    <- token / class / name / LPAR ord RPAR
 
     LITERAL <- {| {:tag: '' -> 'literal' :}    LQUOTES { [^"]* } RQUOTES |}
     ANY     <- {| {:tag: '' -> 'any' :}        { '.' } spaces |}
-    EMPTY   <- {| {:tag: '' -> 'empty' :}      { '%e' / '%empty' } spaces |}
+    EMPTY   <- {| {:tag: '' -> 'empty' :}      ('%e' 'mpty'? -> '%%e') spaces |}
     token   <- LITERAL / ANY / EMPTY
 
-    class   <- {| {:tag: '' -> 'class' :} { '[' '^'? item (!']' item)* ']' } |}
-    item    <- defined / range / .
-    defined <- '%' [A-Za-z][A-Za-z0-9_]*
-    range   <- . '-' [^]]
+    predefined  <- '%' [A-Za-z][A-Za-z0-9_]*
+    class       <- {| {:tag: '' -> 'class' :} { ('[' '^'? item (!']' item)* ']') / predefined } spaces |}
+    item        <- predefined / range / .
+    range       <- . '-' [^]]
 
 ]=]
 
