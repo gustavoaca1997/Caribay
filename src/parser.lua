@@ -6,9 +6,11 @@ local M = {}
 -- TODO: Fragment keyword
 
 local peg_grammar = [=[
-    S       <- {| rule+ !. |}
+    S       <- [%s%nl]* {| rule+ |} !.
+    rule    <- {| {:tag: '' -> 'rule' :} name ARROW ord (newlines / !.) |}
 
-    spaces  <- %s*
+    spaces      <- " "*
+    newlines    <- %nl %s*
 
     LEX_ID  <- {| {:tag: '' -> 'lex_sym' :}    { [A-Z][A-Z0-9_]* } spaces |}
     SYN_ID  <- {| {:tag: '' -> 'syn_sym' :}    { [a-z][a-zA-Z0-9_]* } spaces |}
@@ -25,8 +27,8 @@ local peg_grammar = [=[
     RPAR    <- ')' spaces
     LQUOTES <- '"'
     RQUOTES <- '"' spaces
-
-    rule    <- {| {:tag: '' -> 'rule' :} name ARROW ord |}
+    LQUOTE  <- "'"
+    RQUOTE  <- "'" spaces
 
     ord     <- {| {:tag: '' -> 'ord_exp' :}    seq (ORD_OP seq)* |}
     seq     <- {| {:tag: '' -> 'seq_exp' :}    unary (spaces unary)* |}
@@ -40,7 +42,7 @@ local peg_grammar = [=[
 
     atom    <- token / class / name / LPAR ord RPAR
 
-    LITERAL <- {| {:tag: '' -> 'literal' :}    LQUOTES { [^"]* } RQUOTES |}
+    LITERAL <- {| {:tag: '' -> 'literal' :}    (LQUOTES { [^"]* } RQUOTES / LQUOTE { [^']* } RQUOTE ) |}
     ANY     <- {| {:tag: '' -> 'any' :}        { '.' } spaces |}
     EMPTY   <- {| {:tag: '' -> 'empty' :}      ('%e' 'mpty'? -> '%%e') spaces |}
     token   <- LITERAL / ANY / EMPTY

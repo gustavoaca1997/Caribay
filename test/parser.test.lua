@@ -1,4 +1,4 @@
-describe("Parser", function ( )
+context("Parser", function ( )
     local parser
 
     setup(function()
@@ -7,13 +7,13 @@ describe("Parser", function ( )
 
     context("matches", function()
         context("a single trivial rule with", function()
-            it("a literal", function()
-                local ast = parser.match('S <- "a"')
+            test("a literal", function()
+                local ast = parser.match('s <- "a"')
                 local expected = {
                     {
                         tag = 'rule',
                         {
-                            tag = 'lex_sym', 'S'
+                            tag = 'syn_sym', 's'
                         },
                         {
                             tag = 'ord_exp',
@@ -28,14 +28,37 @@ describe("Parser", function ( )
                 }
                 assert.are.same(expected, ast)
             end)
-    
-            it("an ordered choice", function() 
-                local input = 'S <- "a" / "b"'
+
+            test("spaces at the beginning", function()
+                local input = "    s <- 'a'"
                 local expected = {
                     {
                         tag = 'rule',
                         {
-                            tag = 'lex_sym', 'S'
+                            tag = 'syn_sym', 's'
+                        },
+                        {
+                            tag = 'ord_exp',
+                            {
+                                tag = 'seq_exp',
+                                {
+                                    tag = 'literal', 'a'
+                                }
+                            }
+                        }
+                    }
+                }
+                local output, p, n = parser.match(input)
+                assert.are.same(expected, output)
+            end)
+    
+            test("an ordered choice", function() 
+                local input = 's <- "a" / "b"'
+                local expected = {
+                    {
+                        tag = 'rule',
+                        {
+                            tag = 'syn_sym', 's'
                         },
                         {
                             tag = 'ord_exp',
@@ -54,16 +77,17 @@ describe("Parser", function ( )
                         }
                     }
                 }
-                assert.are.same(expected, parser.match(input))
+                local output, p, n = parser.match(input)
+                assert.are.same(expected, output)
             end)
     
-            it("a sequence", function() 
-                local input = 'S <- "a" "b"'
+            test("a sequence", function() 
+                local input = 's <- "a" "b"'
                 local expected = {
                     {
                         tag = 'rule',
                         {
-                            tag = 'lex_sym', 'S'
+                            tag = 'syn_sym', 's'
                         },
                         {
                             tag = 'ord_exp',
@@ -82,13 +106,13 @@ describe("Parser", function ( )
                 assert.are.same(expected, parser.match(input))
             end)
     
-            it("Kleen star", function()
-                local input = 'S <- "a"*'
+            test("Kleen star", function()
+                local input = 's <- "a"*'
                 local expected = {
                     {
                         tag = 'rule',
                         {
-                            tag = 'lex_sym', 'S'
+                            tag = 'syn_sym', 's'
                         },
                         {
                             tag = 'ord_exp',
@@ -107,13 +131,13 @@ describe("Parser", function ( )
                 assert.are.same(expected, parser.match(input))
             end)
     
-            it("repetition", function()
-                local input = 'S <- bla+'
+            test("repetition", function()
+                local input = 's <- bla+'
                 local expected = {
                     {
                         tag = 'rule',
                         {
-                            tag = 'lex_sym', 'S'
+                            tag = 'syn_sym', 's'
                         },
                         {
                             tag = 'ord_exp',
@@ -132,13 +156,13 @@ describe("Parser", function ( )
                 assert.are.same(expected, parser.match(input))
             end)
     
-            it("optional", function()
-                local input = 'S <- FOOD_TRUCK?'
+            test("optional", function()
+                local input = 's <- FOOD_TRUCK?'
                 local expected = {
                     {
                         tag = 'rule',
                         {
-                            tag = 'lex_sym', 'S'
+                            tag = 'syn_sym', 's'
                         },
                         {
                             tag = 'ord_exp',
@@ -157,13 +181,13 @@ describe("Parser", function ( )
                 assert.are.same(expected, parser.match(input))
             end)
     
-            it("and-predicate", function()
-                local input = "S <- &e1"
+            test("and-predicate", function()
+                local input = "s <- &e1"
                 local expected = {
                     {
                         tag = 'rule',
                         {
-                            tag = 'lex_sym', 'S'
+                            tag = 'syn_sym', 's'
                         },
                         {
                             tag = 'ord_exp',
@@ -182,13 +206,13 @@ describe("Parser", function ( )
                 assert.are.same(expected, parser.match(input))
             end)
     
-            it("not-predicate", function() 
-                local input = "S <- !EXP_1"
+            test("not-predicate", function() 
+                local input = "s <- !EXP_1"
                 local expected = {
                     {
                         tag = 'rule',
                         {
-                            tag = 'lex_sym', 'S'
+                            tag = 'syn_sym', 's'
                         },
                         {
                             tag = 'ord_exp',
@@ -207,13 +231,13 @@ describe("Parser", function ( )
                 assert.are.same(expected, parser.match(input))
             end)
     
-            it("simple character class", function() 
-                local input = "S <- [aeiou12345_]"
+            test("simple character class", function() 
+                local input = "s <- [aeiou12345_]"
                 local expected = {
                     {
                         tag = 'rule',
                         {
-                            tag = 'lex_sym', 'S'
+                            tag = 'syn_sym', 's'
                         },
                         {
                             tag = 'ord_exp',
@@ -229,13 +253,13 @@ describe("Parser", function ( )
                 assert.are.same(expected, parser.match(input))
             end)
 
-            it("simple predefined character class", function() 
-                local input = "S <- %d"
+            test("simple predefined character class", function() 
+                local input = "s <- %d"
                 local expected = {
                     {
                         tag = 'rule',
                         {
-                            tag = 'lex_sym', 'S'
+                            tag = 'syn_sym', 's'
                         },
                         {
                             tag = 'ord_exp',
@@ -251,13 +275,13 @@ describe("Parser", function ( )
                 assert.are.same(expected, parser.match(input))
             end)
     
-            it("complex character class", function() 
-                local input = "S <- [0-7_<>?!%ux-z]"
+            test("complex character class", function() 
+                local input = "s <- [0-7_<>?!%ux-z]"
                 local expected = {
                     {
                         tag = 'rule',
                         {
-                            tag = 'lex_sym', 'S'
+                            tag = 'syn_sym', 's'
                         },
                         {
                             tag = 'ord_exp',
@@ -273,12 +297,12 @@ describe("Parser", function ( )
                 assert.are.same(expected, parser.match(input))
             end)
 
-            it("any-character", function()
-                local input = 'S <- . ", " .'
+            test("any-character", function()
+                local input = 's <- . ", " .'
                 local expected = {
                     {
                         tag = 'rule',
-                        { tag = 'lex_sym', 'S' },
+                        { tag = 'syn_sym', 's' },
                         {
                             tag = 'ord_exp',
                             {
@@ -293,13 +317,13 @@ describe("Parser", function ( )
                 assert.are.same(expected, parser.match(input))
             end)
 
-            it("empty-character I", function()
-                local input = "S <- %e"
+            test("empty-character I", function()
+                local input = "s <- %e"
                 local expected = {
                     {
                         tag = 'rule',
                         {
-                            tag = 'lex_sym', 'S'
+                            tag = 'syn_sym', 's'
                         },
                         {
                             tag = 'ord_exp',
@@ -315,13 +339,13 @@ describe("Parser", function ( )
                 assert.are.same(expected, parser.match(input))
             end)
 
-            it("empty-character II", function()
-                local input = "S <- %empty"
+            test("empty-character II", function()
+                local input = "s <- %empty"
                 local expected = {
                     {
                         tag = 'rule',
                         {
-                            tag = 'lex_sym', 'S'
+                            tag = 'syn_sym', 's'
                         },
                         {
                             tag = 'ord_exp',
@@ -338,13 +362,13 @@ describe("Parser", function ( )
             end)
         end)
 
-        it("a single rule with predefined character classes", function() 
-            local input = 'S <- %s %d %d "/" %u %u "/" %d %d %d %d %s'
+        test("a single rule with predefined character classes", function() 
+            local input = 's <- %s %d %d "/" %u %u "/" %d %d %d %d %s'
             local expected = {
                 {
                     tag = 'rule',
                     {
-                        tag = 'lex_sym', 'S'
+                        tag = 'syn_sym', 's'
                     },
                     {
                         tag = 'ord_exp',
@@ -369,14 +393,14 @@ describe("Parser", function ( )
             assert.are.same(expected, parser.match(input))
         end)
     
-        it("a recursive rule with Kleen star", function()
-            local ast = parser.match('S <- "a" (", " S)*')
+        test("a recursive rule with Kleen star", function()
+            local ast = parser.match('s <- "a" (", " s)*')
     
             local expected = {
                 {
                     tag = 'rule',
                     { 
-                        tag = 'lex_sym', 'S' 
+                        tag = 'syn_sym', 's' 
                     },
                     { 
                         tag = 'ord_exp',
@@ -395,7 +419,7 @@ describe("Parser", function ( )
                                             tag = 'literal', ', '
                                         },
                                         {
-                                            tag = 'lex_sym', 'S'
+                                            tag = 'syn_sym', 's'
                                         }
                                     }
                                 }
@@ -407,7 +431,51 @@ describe("Parser", function ( )
             assert.are.same(expected, ast)
         end)
 
-        pending("multiple rules", function() end)
+        test("two rules", function()
+            local input = [[
+                s <- "a" as
+                as <- ", a"*
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 's' },
+                    {
+                        tag = 'ord_exp',
+                        {
+                            tag = 'seq_exp',
+                            { tag = 'literal', 'a' },
+                            { tag = 'syn_sym', 'as'}
+                        }
+                    }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 'as' },
+                    {
+                        tag = 'ord_exp',
+                        {
+                            tag = 'seq_exp',
+                            {
+                                tag = 'star_exp',
+                                { tag = 'literal', ', a'}
+                            }
+                        }
+                    }
+                }
+            }
+            local output = parser.match(input)
+            assert.are.same(expected, output)
+        end)
+
+        test("a JSON grammar", function()
+            local f = assert(io.open("./test/expected/json/grammar.peg", "r"))
+            local input = f:read("a")
+
+            local expected = require"test.expected.json.ast"
+
+            assert.are.same(expected, parser.match(input))
+        end)
         
     end)
 end)
