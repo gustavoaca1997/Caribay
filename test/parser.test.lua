@@ -16,13 +16,7 @@ context("Parser", function ( )
                             tag = 'syn_sym', 's'
                         },
                         {
-                            tag = 'ord_exp',
-                            {
-                                tag = 'seq_exp',
-                                {
-                                    tag = 'literal', 'a'
-                                }
-                            }
+                            tag = 'literal', 'a'
                         }
                     }
                 }
@@ -38,13 +32,7 @@ context("Parser", function ( )
                             tag = 'syn_sym', 's'
                         },
                         {
-                            tag = 'ord_exp',
-                            {
-                                tag = 'seq_exp',
-                                {
-                                    tag = 'literal', 'a'
-                                }
-                            }
+                            tag = 'literal', 'a'
                         }
                     }
                 }
@@ -62,18 +50,8 @@ context("Parser", function ( )
                         },
                         {
                             tag = 'ord_exp',
-                            {
-                                tag = 'seq_exp',
-                                {
-                                    tag = 'literal', 'a'
-                                }
-                            },
-                            {
-                                tag = 'seq_exp',
-                                {
-                                    tag = 'literal', 'b'
-                                }
-                            }
+                            { tag = 'literal', 'a' },
+                            { tag = 'literal', 'b' },
                         }
                     }
                 }
@@ -90,20 +68,37 @@ context("Parser", function ( )
                             tag = 'syn_sym', 's'
                         },
                         {
-                            tag = 'ord_exp',
+                            tag = 'seq_exp',
                             {
-                                tag = 'seq_exp',
-                                {
-                                    tag = 'literal', 'a'
-                                },
-                                {
-                                    tag = 'literal', 'b'
-                                }
+                                tag = 'literal', 'a'
+                            },
+                            {
+                                tag = 'literal', 'b'
                             }
                         }
                     }
                 }
                 assert.are.same(expected, parser.match(input))
+            end)
+
+            test("sequences and ordered choices", function()
+                local input = 's <- "a" "b" / "c"'
+                local expected = {
+                    {
+                        tag = 'rule',
+                        { tag = 'syn_sym', 's' },
+                        {
+                            tag = 'ord_exp',
+                            {
+                                tag = 'seq_exp',
+                                { tag = 'literal', 'a' },
+                                { tag = 'literal', 'b' }
+                            },
+                            { tag = 'literal', 'c'}
+                        }
+                    }
+                }
+                assert.are.same(expected[1], parser.match(input)[1])
             end)
     
             test("Kleen star", function()
@@ -115,16 +110,8 @@ context("Parser", function ( )
                             tag = 'syn_sym', 's'
                         },
                         {
-                            tag = 'ord_exp',
-                            {
-                                tag = 'seq_exp',
-                                {
-                                    tag = 'star_exp',
-                                    {
-                                        tag = 'literal', 'a'
-                                    }
-                                }
-                            }
+                            tag = 'star_exp',
+                            { tag = 'literal', 'a' }
                         }
                     }
                 }
@@ -140,16 +127,8 @@ context("Parser", function ( )
                             tag = 'syn_sym', 's'
                         },
                         {
-                            tag = 'ord_exp',
-                            {
-                                tag = 'seq_exp',
-                                {
-                                    tag = 'rep_exp',
-                                    {
-                                        tag = 'syn_sym', 'bla'
-                                    }
-                                }
-                            }
+                            tag = 'rep_exp',
+                            { tag = 'syn_sym', 'bla' }
                         }
                     }
                 }
@@ -165,16 +144,8 @@ context("Parser", function ( )
                             tag = 'syn_sym', 's'
                         },
                         {
-                            tag = 'ord_exp',
-                            {
-                                tag = 'seq_exp',
-                                {
-                                    tag = 'opt_exp',
-                                    {
-                                        tag = 'lex_sym', 'FOOD_TRUCK'
-                                    }
-                                }
-                            }
+                            tag = 'opt_exp',
+                            { tag = 'lex_sym', 'FOOD_TRUCK' }
                         }
                     }
                 }
@@ -190,16 +161,8 @@ context("Parser", function ( )
                             tag = 'syn_sym', 's'
                         },
                         {
-                            tag = 'ord_exp',
-                            {
-                                tag = 'seq_exp',
-                                {
-                                    tag = 'and_exp',
-                                    {
-                                        tag = 'syn_sym', 'e1'
-                                    }
-                                }
-                            }
+                            tag = 'and_exp',
+                            { tag = 'syn_sym', 'e1' }
                         }
                     }
                 }
@@ -215,16 +178,8 @@ context("Parser", function ( )
                             tag = 'syn_sym', 's'
                         },
                         {
-                            tag = 'ord_exp',
-                            {
-                                tag = 'seq_exp',
-                                {
-                                    tag = 'not_exp',
-                                    {
-                                        tag = 'lex_sym', 'EXP_1'
-                                    }
-                                }
-                            }
+                            tag = 'not_exp',
+                            {  tag = 'lex_sym', 'EXP_1' }
                         }
                     }
                 }
@@ -239,15 +194,7 @@ context("Parser", function ( )
                         {
                             tag = 'syn_sym', 's'
                         },
-                        {
-                            tag = 'ord_exp',
-                            {
-                                tag = 'seq_exp',
-                                {
-                                    tag = 'class', '[aeiou12345_]'
-                                }
-                            }
-                        }
+                        { tag = 'class', '[aeiou12345_]' }
                     }
                 }
                 assert.are.same(expected, parser.match(input))
@@ -261,15 +208,7 @@ context("Parser", function ( )
                         {
                             tag = 'syn_sym', 's'
                         },
-                        {
-                            tag = 'ord_exp',
-                            {
-                                tag = 'seq_exp',
-                                {
-                                    tag = 'class', '%d'
-                                }
-                            }
-                        }
+                        { tag = 'class', '%d' }
                     }
                 }
                 assert.are.same(expected, parser.match(input))
@@ -283,15 +222,7 @@ context("Parser", function ( )
                         {
                             tag = 'syn_sym', 's'
                         },
-                        {
-                            tag = 'ord_exp',
-                            {
-                                tag = 'seq_exp',
-                                {
-                                    tag = 'class', '[0-7_<>?!%ux-z]'
-                                }
-                            }
-                        }
+                        { tag = 'class', '[0-7_<>?!%ux-z]' }
                     }
                 }
                 assert.are.same(expected, parser.match(input))
@@ -304,13 +235,10 @@ context("Parser", function ( )
                         tag = 'rule',
                         { tag = 'syn_sym', 's' },
                         {
-                            tag = 'ord_exp',
-                            {
-                                tag = 'seq_exp',
-                                { tag = 'any', '.' },
-                                { tag = 'literal', ', ' },
-                                { tag = 'any', '.' }
-                            }
+                            tag = 'seq_exp',
+                            { tag = 'any', '.' },
+                            { tag = 'literal', ', ' },
+                            { tag = 'any', '.' }
                         }
                     }
                 }
@@ -322,18 +250,8 @@ context("Parser", function ( )
                 local expected = {
                     {
                         tag = 'rule',
-                        {
-                            tag = 'syn_sym', 's'
-                        },
-                        {
-                            tag = 'ord_exp',
-                            {
-                                tag = 'seq_exp',
-                                {
-                                    tag = 'empty', '%e'
-                                }
-                            }
-                        }
+                        { tag = 'syn_sym', 's' },
+                        { tag = 'empty', '%e' }
                     }
                 }
                 assert.are.same(expected, parser.match(input))
@@ -344,18 +262,8 @@ context("Parser", function ( )
                 local expected = {
                     {
                         tag = 'rule',
-                        {
-                            tag = 'syn_sym', 's'
-                        },
-                        {
-                            tag = 'ord_exp',
-                            {
-                                tag = 'seq_exp',
-                                {
-                                    tag = 'empty', '%e'
-                                }
-                            }
-                        }
+                        { tag = 'syn_sym', 's' },
+                        { tag = 'empty', '%e' }
                     }
                 }
                 assert.are.same(expected, parser.match(input))
@@ -371,22 +279,19 @@ context("Parser", function ( )
                         tag = 'syn_sym', 's'
                     },
                     {
-                        tag = 'ord_exp',
-                        {
-                            tag = 'seq_exp',
-                            { tag = 'class', '%s' },
-                            { tag = 'class', '%d' },
-                            { tag = 'class', '%d' },
-                            { tag = 'literal', '/' },
-                            { tag = 'class', '%u' },
-                            { tag = 'class', '%u' },
-                            { tag = 'literal', '/' },
-                            { tag = 'class', '%d' },
-                            { tag = 'class', '%d' },
-                            { tag = 'class', '%d' },
-                            { tag = 'class', '%d' },
-                            { tag = 'class', '%s' },
-                        }
+                        tag = 'seq_exp',
+                        { tag = 'class', '%s' },
+                        { tag = 'class', '%d' },
+                        { tag = 'class', '%d' },
+                        { tag = 'literal', '/' },
+                        { tag = 'class', '%u' },
+                        { tag = 'class', '%u' },
+                        { tag = 'literal', '/' },
+                        { tag = 'class', '%d' },
+                        { tag = 'class', '%d' },
+                        { tag = 'class', '%d' },
+                        { tag = 'class', '%d' },
+                        { tag = 'class', '%s' },
                     }
                 }
             }
@@ -403,25 +308,19 @@ context("Parser", function ( )
                         tag = 'syn_sym', 's' 
                     },
                     { 
-                        tag = 'ord_exp',
+                        tag = 'seq_exp',
                         {
-                            tag = 'seq_exp',
+                            tag = 'literal', 'a'
+                        },
+                        {
+                            tag = 'star_exp',
                             {
-                                tag = 'literal', 'a'
-                            },
-                            {
-                                tag = 'star_exp',
+                                tag = 'seq_exp',
                                 {
-                                    tag = 'ord_exp',
-                                    {
-                                        tag = 'seq_exp',
-                                        {
-                                            tag = 'literal', ', '
-                                        },
-                                        {
-                                            tag = 'syn_sym', 's'
-                                        }
-                                    }
+                                    tag = 'literal', ', '
+                                },
+                                {
+                                    tag = 'syn_sym', 's'
                                 }
                             }
                         }
@@ -441,26 +340,17 @@ context("Parser", function ( )
                     tag = 'rule',
                     { tag = 'syn_sym', 's' },
                     {
-                        tag = 'ord_exp',
-                        {
-                            tag = 'seq_exp',
-                            { tag = 'literal', 'a' },
-                            { tag = 'syn_sym', 'as'}
-                        }
+                        tag = 'seq_exp',
+                        { tag = 'literal', 'a' },
+                        { tag = 'syn_sym', 'as'}
                     }
                 },
                 {
                     tag = 'rule',
                     { tag = 'syn_sym', 'as' },
                     {
-                        tag = 'ord_exp',
-                        {
-                            tag = 'seq_exp',
-                            {
-                                tag = 'star_exp',
-                                { tag = 'literal', ', a'}
-                            }
-                        }
+                        tag = 'star_exp',
+                        { tag = 'literal', ', a'}
                     }
                 }
             }
@@ -476,6 +366,51 @@ context("Parser", function ( )
 
             assert.are.same(expected, parser.match(input))
         end)
+
+        pending("rules with semantic actions", function()
+            local input = [[
+                s       <- pair ("," pair)*
+                pair    <- { STRING ':' NUMBER, map_insert}
+                STRING  <- [a-zA-Z0-9_]+
+                NUMBER <- %d+ ('.' %d+)?
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 's' },
+                    {
+                        tag = 'seq_exp',
+                        { tag = 'syn_sym', 'pair' },
+                        {
+                            tag = 'star_exp',
+                            {
+                                tag = 'seq_exp',
+                                { tag = 'literal', ', ' },
+                                { tag = 'syn_sym', 'pair' }
+                            }
+                        }
+                    }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 's' },
+                    {
+                        tag = 'action',
+                        action = 'map_insert',
+                        {
+                            tag = 'seq_exp',
+                            { tag = 'lex_sym', 'STRING' },
+                            { tag = 'literal', ':' },
+                            { tag = 'lex_sym', 'NUMBER' },
+                        },
+                    }
+                }
+            }
+        end)
         
+    end)
+
+    pending("(context) throws", function()
+
     end)
 end)

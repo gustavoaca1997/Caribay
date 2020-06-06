@@ -1,4 +1,5 @@
 local re = require"relabel"
+local lp = require"lpeglabel"
 
 local M = {}
 
@@ -7,7 +8,7 @@ local M = {}
 
 local peg_grammar = [=[
     S       <- [%s%nl]* {| rule+ |} !.
-    rule    <- {| {:tag: '' -> 'rule' :} name ARROW ord (newlines / !.) |}
+    rule    <- {| {:tag: '' -> 'rule' :} name ARROW exp (newlines / !.) |}
 
     spaces      <- " "*
     newlines    <- %nl %s*
@@ -16,22 +17,28 @@ local peg_grammar = [=[
     SYN_ID  <- {| {:tag: '' -> 'syn_sym' :}    { [a-z][a-zA-Z0-9_]* } spaces |}
     name    <- LEX_ID / SYN_ID
 
-    ARROW   <- '<-' spaces
-    ORD_OP  <- '/' spaces
-    STAR_OP <- '*' spaces
-    REP_OP  <- '+' spaces
-    OPT_OP  <- '?' spaces
-    AND_OP  <- '&'
-    NOT_OP  <- '!'
-    LPAR    <- '(' spaces
-    RPAR    <- ')' spaces
-    LQUOTES <- '"'
-    RQUOTES <- '"' spaces
-    LQUOTE  <- "'"
-    RQUOTE  <- "'" spaces
+    ARROW       <- '<-' spaces
+    ORD_OP      <- '/' spaces
+    STAR_OP     <- '*' spaces
+    REP_OP      <- '+' spaces
+    OPT_OP      <- '?' spaces
+    AND_OP      <- '&'
+    NOT_OP      <- '!'
+    LPAR        <- '(' spaces
+    RPAR        <- ')' spaces
+    LQUOTES     <- '"'
+    RQUOTES     <- '"' spaces
+    LQUOTE      <- "'"
+    RQUOTE      <- "'" spaces
+    LBRACKET    <- '{' spaces
+    RBRACKET    <- '}' spaces
+    COMMA       <- ',' spaces
 
-    ord     <- {| {:tag: '' -> 'ord_exp' :}    seq (ORD_OP seq)* |}
-    seq     <- {| {:tag: '' -> 'seq_exp' :}    unary (spaces unary)* |}
+    exp     <- ord / action
+    action  <- {| {:tag: '' -> 'action' :} LBRACKET exp COMMA {:action: id :} RBRACKET |}
+
+    ord     <- (seq (ORD_OP seq)*)      -> parse_ord
+    seq     <- (unary (spaces unary)*)  -> parse_seq
 
     unary   <- star / rep / opt / and / not / atom
     star    <- {| {:tag: '' -> 'star_exp' :}   atom STAR_OP |}
@@ -40,21 +47,37 @@ local peg_grammar = [=[
     and     <- {| {:tag: '' -> 'and_exp' :}    AND_OP atom |}
     not     <- {| {:tag: '' -> 'not_exp' :}    NOT_OP atom |}
 
-    atom    <- token / class / name / LPAR ord RPAR
+    atom    <- token / class / name / LPAR exp RPAR
 
     LITERAL <- {| {:tag: '' -> 'literal' :}    (LQUOTES { [^"]* } RQUOTES / LQUOTE { [^']* } RQUOTE ) |}
     ANY     <- {| {:tag: '' -> 'any' :}        { '.' } spaces |}
     EMPTY   <- {| {:tag: '' -> 'empty' :}      ('%e' 'mpty'? -> '%%e') spaces |}
     token   <- LITERAL / ANY / EMPTY
 
-    predefined  <- '%' [A-Za-z][A-Za-z0-9_]*
+    id          <- [A-Za-z][A-Za-z0-9_]*
+    predefined  <- '%' id
     class       <- {| {:tag: '' -> 'class' :} { ('[' '^'? item (!']' item)* ']') / predefined } spaces |}
     item        <- predefined / range / .
     range       <- . '-' [^]]
 
 ]=]
 
-local peg_parser = re.compile(peg_grammar)
+local function parse_binary(tag)
+    return function ( ... )
+        local args = {...}
+        if (#args == 1) then
+            return args[1]
+        else
+            args.tag = tag
+            return args
+        end
+    end
+end
+
+local peg_parser = re.compile(peg_grammar, {
+    parse_ord = parse_binary"ord_exp",
+    parse_seq = parse_binary"seq_exp"
+})
 
 function M.match(inp)
     return peg_parser:match(inp)
