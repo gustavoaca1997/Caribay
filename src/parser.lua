@@ -22,8 +22,8 @@ local peg_grammar = [=[
     STAR_OP     <- '*' spaces
     REP_OP      <- '+' spaces
     OPT_OP      <- '?' spaces
-    AND_OP      <- '&'
-    NOT_OP      <- '!'
+    AND_OP      <- '&' spaces
+    NOT_OP      <- '!' spaces
     LPAR        <- '(' spaces
     RPAR        <- ')' spaces
     LQUOTES     <- '"'
