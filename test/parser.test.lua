@@ -1,3 +1,17 @@
+local function contains_error(state, arguments)
+    local expectedMsg, toCall = table.unpack(arguments)
+
+    local ok, errMsg = pcall(toCall, table.unpack(arguments, 3))
+    if ok then
+        return false
+    else
+        local pos = string.find( errMsg, expectedMsg )
+        return pos
+    end
+end
+
+assert:register("assertion", "contains_error", contains_error)
+
 context("Parser", function ( )
     local parser
 
@@ -98,7 +112,7 @@ context("Parser", function ( )
                         }
                     }
                 }
-                assert.are.same(expected[1], parser.match(input)[1])
+                assert.are.same(expected, parser.match(input))
             end)
     
             test("Kleen star", function()
@@ -410,7 +424,61 @@ context("Parser", function ( )
         
     end)
 
-    pending("(context) throws", function()
+    it("scaped quotes I", function()
+        local input = 's <- "\\"" '
+        local expected = {
+            {
+                tag = 'rule',
+                { tag = 'syn_sym', 's' },
+                { tag = 'literal', '"' }
+            },
+        }
+        assert.are.same(expected, parser.match(input))
+    end)
 
+    it("scaped quotes II", function()
+        local input = [[
+            s <- "\"" a "\""
+            a <- '\''*
+        ]]
+        local expected = {
+            {
+                tag = 'rule',
+                { tag = 'syn_sym', 's' },
+                {
+                    tag = 'seq_exp',
+                    { tag = 'literal', '"' },
+                    { tag = 'syn_sym', 'a' },
+                    { tag = 'literal', '"' },
+                }
+            },
+            {
+                tag = 'rule',
+                { tag = 'syn_sym', 'a' },
+                {
+                    tag = 'star_exp',
+                    { tag = 'literal', "'" }
+                }
+            }
+        }
+        assert.are.same(expected[2][2], parser.match(input)[2][2])
+    end)
+
+    test("class with closing square bracket", function()
+        local input = [=[
+            s <- [^]]
+        ]=]
+        local expected = {
+            {
+                tag = 'rule',
+                { tag = 'syn_sym', 's' },
+                { tag = 'class', '[^]]' }
+            }
+        }
+        assert.are.same(expected, parser.match(input))
+    end)
+
+    pending("throws", function()
+        
     end)
 end)

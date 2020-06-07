@@ -22,8 +22,8 @@ local peg_grammar = [=[
     STAR_OP     <- '*' spaces
     REP_OP      <- '+' spaces
     OPT_OP      <- '?' spaces
-    AND_OP      <- '&'
-    NOT_OP      <- '!'
+    AND_OP      <- '&' spaces
+    NOT_OP      <- '!' spaces
     LPAR        <- '(' spaces
     RPAR        <- ')' spaces
     LQUOTES     <- '"'
@@ -49,7 +49,7 @@ local peg_grammar = [=[
 
     atom    <- token / class / name / LPAR exp RPAR
 
-    LITERAL <- {| {:tag: '' -> 'literal' :}    (LQUOTES { [^"]* } RQUOTES / LQUOTE { [^']* } RQUOTE ) |}
+    LITERAL <- {| {:tag: '' -> 'literal' :}    (LQUOTES ('\"' / [^"])* -> parse_esc RQUOTES / LQUOTE ("\'" / [^'])* -> parse_esc RQUOTE ) |}
     ANY     <- {| {:tag: '' -> 'any' :}        { '.' } spaces |}
     EMPTY   <- {| {:tag: '' -> 'empty' :}      ('%e' 'mpty'? -> '%%e') spaces |}
     token   <- LITERAL / ANY / EMPTY
@@ -74,9 +74,25 @@ local function parse_binary(tag)
     end
 end
 
+local function parse_esc(str)
+    local ret = str:
+                    gsub('\\a', '\a'):
+                    gsub('\\b', '\b'):
+                    gsub('\\f', '\f'):
+                    gsub('\\n', '\n'):
+                    gsub('\\r', '\r'):
+                    gsub('\\t', '\t'):
+                    gsub('\\v', '\v'):
+                    gsub('\\\\', '\\'):
+                    gsub('\\"', '"'):
+                    gsub("\\'", "'")
+    return ret
+end
+
 local peg_parser = re.compile(peg_grammar, {
     parse_ord = parse_binary"ord_exp",
-    parse_seq = parse_binary"seq_exp"
+    parse_seq = parse_binary"seq_exp",
+    parse_esc = parse_esc,
 })
 
 function M.match(inp)
