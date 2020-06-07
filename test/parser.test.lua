@@ -1,3 +1,17 @@
+local function contains_error(state, arguments)
+    local expectedMsg, toCall = table.unpack(arguments)
+
+    local ok, errMsg = pcall(toCall, table.unpack(arguments, 3))
+    if ok then
+        return false
+    else
+        local pos = string.find( errMsg, expectedMsg )
+        return pos
+    end
+end
+
+assert:register("assertion", "contains_error", contains_error)
+
 context("Parser", function ( )
     local parser
 
@@ -447,7 +461,7 @@ context("Parser", function ( )
                 }
             }
         }
-        assert.are.same(expected[1][2], parser.match(input)[1][2])
+        assert.are.same(expected[2][2], parser.match(input)[2][2])
     end)
 
     test("class with closing square bracket", function()
@@ -464,7 +478,7 @@ context("Parser", function ( )
         assert.are.same(expected, parser.match(input))
     end)
 
-    pending("(context) throws", function()
-
+    pending("throws", function()
+        
     end)
 end)

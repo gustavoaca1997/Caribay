@@ -85,7 +85,7 @@ local function parse_esc(str)
                     gsub('\\v', '\v'):
                     gsub('\\\\', '\\'):
                     gsub('\\"', '"'):
-                    gsub("\'", "'")
+                    gsub("\\'", "'")
     return ret
 end
 
