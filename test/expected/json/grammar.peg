@@ -2,7 +2,7 @@ json    <- value
 value   <- object / array / BOOLEAN / STRING / NUMBER / "null"
 
 NUMBER  <- %d+ ("." %d+)?
-STRING  <-  '"' [^"] '"'
+STRING  <-  "\"" [^"] "\""
 BOOLEAN <- "true" / "false"
 
 array   <- "[" (value ("," value)*)? "]"

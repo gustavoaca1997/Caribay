@@ -98,7 +98,7 @@ context("Parser", function ( )
                         }
                     }
                 }
-                assert.are.same(expected[1], parser.match(input)[1])
+                assert.are.same(expected, parser.match(input))
             end)
     
             test("Kleen star", function()
@@ -408,6 +408,60 @@ context("Parser", function ( )
             }
         end)
         
+    end)
+
+    it("scaped quotes I", function()
+        local input = 's <- "\\"" '
+        local expected = {
+            {
+                tag = 'rule',
+                { tag = 'syn_sym', 's' },
+                { tag = 'literal', '"' }
+            },
+        }
+        assert.are.same(expected, parser.match(input))
+    end)
+
+    it("scaped quotes II", function()
+        local input = [[
+            s <- "\"" a "\""
+            a <- '\''*
+        ]]
+        local expected = {
+            {
+                tag = 'rule',
+                { tag = 'syn_sym', 's' },
+                {
+                    tag = 'seq_exp',
+                    { tag = 'literal', '"' },
+                    { tag = 'syn_sym', 'a' },
+                    { tag = 'literal', '"' },
+                }
+            },
+            {
+                tag = 'rule',
+                { tag = 'syn_sym', 'a' },
+                {
+                    tag = 'star_exp',
+                    { tag = 'literal', "'" }
+                }
+            }
+        }
+        assert.are.same(expected[1][2], parser.match(input)[1][2])
+    end)
+
+    test("class with closing square bracket", function()
+        local input = [=[
+            s <- [^]]
+        ]=]
+        local expected = {
+            {
+                tag = 'rule',
+                { tag = 'syn_sym', 's' },
+                { tag = 'class', '[^]]' }
+            }
+        }
+        assert.are.same(expected, parser.match(input))
     end)
 
     pending("(context) throws", function()
