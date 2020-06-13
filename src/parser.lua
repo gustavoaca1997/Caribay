@@ -64,6 +64,9 @@ local peg_grammar = [=[
 ]=]
 
 M.errMsgs = {
+    ErrArrow        = 'Arrow expected',
+    ErrExp          = 'Valid expression expected',
+    ErrRuleEnd      = 'Missing end of rule',
     ErrComma        = 'Missing comma',
     ErrID           = 'Valid identifier expected',
     ErrRBracket     = 'Closing bracket expected',
