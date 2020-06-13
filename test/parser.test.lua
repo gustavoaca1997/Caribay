@@ -381,7 +381,7 @@ context("Parser", function ( )
             assert.are.same(expected, parser.match(input))
         end)
 
-        pending("rules with semantic actions", function()
+        test("rule with semantic action", function()
             local input = [[
                 s       <- pair ("," pair)*
                 pair    <- { STRING ':' NUMBER, map_insert}
@@ -399,7 +399,7 @@ context("Parser", function ( )
                             tag = 'star_exp',
                             {
                                 tag = 'seq_exp',
-                                { tag = 'literal', ', ' },
+                                { tag = 'literal', ',' },
                                 { tag = 'syn_sym', 'pair' }
                             }
                         }
@@ -407,7 +407,7 @@ context("Parser", function ( )
                 },
                 {
                     tag = 'rule',
-                    { tag = 'syn_sym', 's' },
+                    { tag = 'syn_sym', 'pair' },
                     {
                         tag = 'action',
                         action = 'map_insert',
@@ -418,8 +418,115 @@ context("Parser", function ( )
                             { tag = 'lex_sym', 'NUMBER' },
                         },
                     }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'lex_sym', 'STRING' },
+                    {
+                        tag = 'rep_exp',
+                        { tag = 'class', '[a-zA-Z0-9_]' }
+                    }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'lex_sym', 'NUMBER' },
+                    {
+                        tag = 'seq_exp',
+                        {
+                            tag = 'rep_exp',
+                            { tag = 'class', '%d' }
+                        },
+                        {
+                            tag = 'opt_exp',
+                            {
+                                tag = 'seq_exp',
+                                { tag = 'literal', '.' },
+                                {
+                                    tag = 'rep_exp',
+                                    { tag = 'class', '%d' }
+                                }
+                            }
+                        }
+                    },
                 }
             }
+            assert.are.same(expected, parser.match(input))
+        end)
+
+        test("rule with nested semantic action", function()
+            local input = [[
+                s       <- pair ("," pair)*
+                pair    <- { {STRING, parse_esc} ':' NUMBER, map_insert}
+                STRING  <- [a-zA-Z0-9_]+
+                NUMBER <- %d+ ('.' %d+)?
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 's' },
+                    {
+                        tag = 'seq_exp',
+                        { tag = 'syn_sym', 'pair' },
+                        {
+                            tag = 'star_exp',
+                            {
+                                tag = 'seq_exp',
+                                { tag = 'literal', ',' },
+                                { tag = 'syn_sym', 'pair' }
+                            }
+                        }
+                    }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 'pair' },
+                    {
+                        tag = 'action',
+                        action = 'map_insert',
+                        {
+                            tag = 'seq_exp',
+                            { 
+                                tag = 'action',
+                                action = 'parse_esc',
+                                { tag = 'lex_sym', 'STRING' },
+                            },
+                            { tag = 'literal', ':' },
+                            { tag = 'lex_sym', 'NUMBER' },
+                        },
+                    }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'lex_sym', 'STRING' },
+                    {
+                        tag = 'rep_exp',
+                        { tag = 'class', '[a-zA-Z0-9_]' }
+                    }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'lex_sym', 'NUMBER' },
+                    {
+                        tag = 'seq_exp',
+                        {
+                            tag = 'rep_exp',
+                            { tag = 'class', '%d' }
+                        },
+                        {
+                            tag = 'opt_exp',
+                            {
+                                tag = 'seq_exp',
+                                { tag = 'literal', '.' },
+                                {
+                                    tag = 'rep_exp',
+                                    { tag = 'class', '%d' }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+            assert.are.same(expected, parser.match(input))
         end)
         
     end)

@@ -4,11 +4,12 @@ local lp = require"lpeglabel"
 local M = {}
 
 -- TODO: Insert error labels for better error reporting
--- TODO: Fragment keyword
+-- TODO: Fragment annotation. Idea: Fragments are single quoted.
+-- TODO: Keyword annotation. Idea: Keywords use backsticks.
 
 local peg_grammar = [=[
     S       <- [%s%nl]* {| rule+ |} !.
-    rule    <- {| {:tag: '' -> 'rule' :} name ARROW exp (newlines / !.) |}
+    rule    <- {| {:tag: '' -> 'rule' :} name ARROW^ErrArrow exp^ErrExp (newlines / !. / %{ErrRuleEnd}) |}
 
     spaces      <- " "*
     newlines    <- %nl %s*
@@ -34,33 +35,47 @@ local peg_grammar = [=[
     RBRACKET    <- '}' spaces
     COMMA       <- ',' spaces
 
-    exp     <- ord / action
-    action  <- {| {:tag: '' -> 'action' :} LBRACKET exp COMMA {:action: id :} RBRACKET |}
+    exp     <- ord 
+    action  <- {| {:tag: '' -> 'action' :} LBRACKET exp^ErrExp COMMA^ErrComma {:action: ID^ErrID :} RBRACKET^ErrRBracket |}
 
-    ord     <- (seq (ORD_OP seq)*)      -> parse_ord
-    seq     <- (unary (spaces unary)*)  -> parse_seq
+    ord     <- (seq (ORD_OP seq^ErrChoice)*)   -> parse_ord
+    seq     <- (unary (spaces unary)*)      -> parse_seq
 
     unary   <- star / rep / opt / and / not / atom
     star    <- {| {:tag: '' -> 'star_exp' :}   atom STAR_OP |}
     rep     <- {| {:tag: '' -> 'rep_exp' :}    atom REP_OP |}
     opt     <- {| {:tag: '' -> 'opt_exp' :}    atom OPT_OP |}
-    and     <- {| {:tag: '' -> 'and_exp' :}    AND_OP atom |}
-    not     <- {| {:tag: '' -> 'not_exp' :}    NOT_OP atom |}
+    and     <- {| {:tag: '' -> 'and_exp' :}    AND_OP atom^ErrAtom |}
+    not     <- {| {:tag: '' -> 'not_exp' :}    NOT_OP atom^ErrAtom |}
 
-    atom    <- token / class / name / LPAR exp RPAR
+    atom    <- token / class / name / LPAR exp RPAR^ErrRPar / action
 
-    LITERAL <- {| {:tag: '' -> 'literal' :}    (LQUOTES ('\"' / [^"])* -> parse_esc RQUOTES / LQUOTE ("\'" / [^'])* -> parse_esc RQUOTE ) |}
+    LITERAL <- {| {:tag: '' -> 'literal' :}    (LQUOTES ('\"' / [^"])* -> parse_esc RQUOTES^ErrRQuotes / LQUOTE ("\'" / [^'])* -> parse_esc RQUOTE^ErrRQuote ) |}
     ANY     <- {| {:tag: '' -> 'any' :}        { '.' } spaces |}
     EMPTY   <- {| {:tag: '' -> 'empty' :}      ('%e' 'mpty'? -> '%%e') spaces |}
     token   <- LITERAL / ANY / EMPTY
 
-    id          <- [A-Za-z][A-Za-z0-9_]*
-    predefined  <- '%' id
-    class       <- {| {:tag: '' -> 'class' :} { ('[' '^'? item (!']' item)* ']') / predefined } spaces |}
+    ID          <- [A-Za-z][A-Za-z0-9_]*
+    predefined  <- '%' ID
+    class       <- {| {:tag: '' -> 'class' :} { ('[' '^'? item^ErrItem (!']' item)* ']'^ErrRSquare) / predefined } spaces |}
     item        <- predefined / range / .
-    range       <- . '-' [^]]
+    range       <- . '-' [^]]^ErrRRange
 
 ]=]
+
+M.errMsgs = {
+    ErrComma        = 'Missing comma',
+    ErrID           = 'Valid identifier expected',
+    ErrRBracket     = 'Closing bracket expected',
+    ErrChoice       = 'Valid choice expected',
+    ErrAtom         = 'Valid token, character class, identifier or expression between parentheses expected',
+    ErrRPar         = 'Closing parentheses expected',
+    ErrRQuotes      = 'Closing double quotes expected',
+    ErrRQuote       = 'Closing single quotes expected',
+    ErrItem         = 'Valid body of character class expected',
+    ErrRSquare      = 'Closing square bracket expected',
+    ErrRRange       = 'Right bound of range expected',
+}
 
 local function parse_binary(tag)
     return function ( ... )
@@ -96,7 +111,14 @@ local peg_parser = re.compile(peg_grammar, {
 })
 
 function M.match(inp)
-    return peg_parser:match(inp)
+    local ast, errLabel, pos = peg_parser:match(inp)
+    if not ast then
+        local ln, col = re.calcline(inp, pos)
+        local errMsg = "Error at line " .. ln .. ", column " .. col .. ": " ..
+            M.errMsgs[errLabel]
+        error(errMsg)
+    end
+    return ast
 end
 
 function M.show_ast(ast, tabs)
