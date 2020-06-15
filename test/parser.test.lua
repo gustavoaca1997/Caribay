@@ -6,7 +6,11 @@ local function contains_error(state, arguments)
         return false
     else
         local pos = string.find( errMsg, expectedMsg )
-        return pos
+        if pos then
+            return true
+        else
+            error(errMsg)
+        end
     end
 end
 
@@ -381,7 +385,7 @@ context("Parser", function ( )
             assert.are.same(expected, parser.match(input))
         end)
 
-        pending("rules with semantic actions", function()
+        test("rule with semantic action", function()
             local input = [[
                 s       <- pair ("," pair)*
                 pair    <- { STRING ':' NUMBER, map_insert}
@@ -399,7 +403,7 @@ context("Parser", function ( )
                             tag = 'star_exp',
                             {
                                 tag = 'seq_exp',
-                                { tag = 'literal', ', ' },
+                                { tag = 'literal', ',' },
                                 { tag = 'syn_sym', 'pair' }
                             }
                         }
@@ -407,7 +411,7 @@ context("Parser", function ( )
                 },
                 {
                     tag = 'rule',
-                    { tag = 'syn_sym', 's' },
+                    { tag = 'syn_sym', 'pair' },
                     {
                         tag = 'action',
                         action = 'map_insert',
@@ -418,67 +422,390 @@ context("Parser", function ( )
                             { tag = 'lex_sym', 'NUMBER' },
                         },
                     }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'lex_sym', 'STRING' },
+                    {
+                        tag = 'rep_exp',
+                        { tag = 'class', '[a-zA-Z0-9_]' }
+                    }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'lex_sym', 'NUMBER' },
+                    {
+                        tag = 'seq_exp',
+                        {
+                            tag = 'rep_exp',
+                            { tag = 'class', '%d' }
+                        },
+                        {
+                            tag = 'opt_exp',
+                            {
+                                tag = 'seq_exp',
+                                { tag = 'literal', '.' },
+                                {
+                                    tag = 'rep_exp',
+                                    { tag = 'class', '%d' }
+                                }
+                            }
+                        }
+                    },
                 }
             }
+            assert.are.same(expected, parser.match(input))
+        end)
+
+        test("rule with nested semantic action", function()
+            local input = [[
+                s       <- pair ("," pair)*
+                pair    <- { {STRING, parse_esc} ':' NUMBER, map_insert}
+                STRING  <- [a-zA-Z0-9_]+
+                NUMBER <- %d+ ('.' %d+)?
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 's' },
+                    {
+                        tag = 'seq_exp',
+                        { tag = 'syn_sym', 'pair' },
+                        {
+                            tag = 'star_exp',
+                            {
+                                tag = 'seq_exp',
+                                { tag = 'literal', ',' },
+                                { tag = 'syn_sym', 'pair' }
+                            }
+                        }
+                    }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 'pair' },
+                    {
+                        tag = 'action',
+                        action = 'map_insert',
+                        {
+                            tag = 'seq_exp',
+                            { 
+                                tag = 'action',
+                                action = 'parse_esc',
+                                { tag = 'lex_sym', 'STRING' },
+                            },
+                            { tag = 'literal', ':' },
+                            { tag = 'lex_sym', 'NUMBER' },
+                        },
+                    }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'lex_sym', 'STRING' },
+                    {
+                        tag = 'rep_exp',
+                        { tag = 'class', '[a-zA-Z0-9_]' }
+                    }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'lex_sym', 'NUMBER' },
+                    {
+                        tag = 'seq_exp',
+                        {
+                            tag = 'rep_exp',
+                            { tag = 'class', '%d' }
+                        },
+                        {
+                            tag = 'opt_exp',
+                            {
+                                tag = 'seq_exp',
+                                { tag = 'literal', '.' },
+                                {
+                                    tag = 'rep_exp',
+                                    { tag = 'class', '%d' }
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+            assert.are.same(expected, parser.match(input))
+        end)
+
+        test("scaped quotes I", function()
+            local input = 's <- "\\"" '
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 's' },
+                    { tag = 'literal', '"' }
+                },
+            }
+            assert.are.same(expected, parser.match(input))
+        end)
+    
+        test("scaped quotes II", function()
+            local input = [[
+                s <- "\"" a "\""
+                a <- '\''*
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 's' },
+                    {
+                        tag = 'seq_exp',
+                        { tag = 'literal', '"' },
+                        { tag = 'syn_sym', 'a' },
+                        { tag = 'literal', '"' },
+                    }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 'a' },
+                    {
+                        tag = 'star_exp',
+                        { tag = 'literal', "'" }
+                    }
+                }
+            }
+            assert.are.same(expected[2][2], parser.match(input)[2][2])
+        end)
+
+        test("scaped quotes II", function()
+            local input = [[
+                s <- "'literal'" a '"another literal"'
+                a <- '\''*
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 's' },
+                    {
+                        tag = 'seq_exp',
+                        { tag = 'literal', "'literal'" },
+                        { tag = 'syn_sym', 'a' },
+                        { tag = 'literal', '"another literal"' },
+                    }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 'a' },
+                    {
+                        tag = 'star_exp',
+                        { tag = 'literal', "'" }
+                    }
+                }
+            }
+            assert.are.same(expected[2][2], parser.match(input)[2][2])
+        end)
+    
+        test("class with closing square bracket", function()
+            local input = [=[
+                s <- [^]]
+            ]=]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 's' },
+                    { tag = 'class', '[^]]' }
+                }
+            }
+            assert.are.same(expected, parser.match(input))
         end)
         
     end)
 
-    it("scaped quotes I", function()
-        local input = 's <- "\\"" '
-        local expected = {
-            {
-                tag = 'rule',
-                { tag = 'syn_sym', 's' },
-                { tag = 'literal', '"' }
-            },
-        }
-        assert.are.same(expected, parser.match(input))
-    end)
+    context("throws", function()
+        test("'Arrow expected' on bad written rule", function()
+            local input = [[
+                s <- a ";"?
+                a "break"
+            ]]
+            assert.contains_error("Arrow expected", parser.match, input)
+        end)
 
-    it("scaped quotes II", function()
-        local input = [[
-            s <- "\"" a "\""
-            a <- '\''*
-        ]]
-        local expected = {
-            {
-                tag = 'rule',
-                { tag = 'syn_sym', 's' },
-                {
-                    tag = 'seq_exp',
-                    { tag = 'literal', '"' },
-                    { tag = 'syn_sym', 'a' },
-                    { tag = 'literal', '"' },
-                }
-            },
-            {
-                tag = 'rule',
-                { tag = 'syn_sym', 'a' },
-                {
-                    tag = 'star_exp',
-                    { tag = 'literal', "'" }
-                }
-            }
-        }
-        assert.are.same(expected[2][2], parser.match(input)[2][2])
-    end)
+        test("'Valid expression expected' on bad written rule", function()
+            local input = [[
+                s <- a b?
+                a <-
+                b <- ";"
+            ]]
+            assert.contains_error("Valid expression expected", parser.match, input)
+        end)
 
-    test("class with closing square bracket", function()
-        local input = [=[
-            s <- [^]]
-        ]=]
-        local expected = {
-            {
-                tag = 'rule',
-                { tag = 'syn_sym', 's' },
-                { tag = 'class', '[^]]' }
-            }
-        }
-        assert.are.same(expected, parser.match(input))
-    end)
+        test("'Missing end of rule' on bad written rule I", function()
+            local input = [[
+                s <- a b? ~
+                a <- "break"
+                b <- ";"
+            ]]
+            assert.contains_error("Missing end of rule", parser.match, input)
+        end)
 
-    pending("throws", function()
-        
+        test("'Missing end of rule' on bad written rule II", function()
+            local input = [[
+                s <- a b? a <- "break"
+                b <- ";"
+            ]]
+            assert.contains_error("Missing end of rule", parser.match, input)
+        end)
+
+        test("'Valid expression expected' on bad written action I", function()
+            local input = 's <- { , func}'
+            assert.contains_error("Valid expression expected", parser.match, input)
+        end)
+
+        test("'Valid expression expected' on bad written action II", function()
+            local input = 's <- {  }'
+            assert.contains_error("Valid expression expected", parser.match, input)
+        end)
+
+        test("'Valid expression expected' on bad written action III", function()
+            local input = 's <- {  '
+            assert.contains_error("Valid expression expected", parser.match, input)
+        end)
+
+        test("'Valid expression expected' on bad written action IV", function()
+            local input = 's <- { { , gunc }, func }'
+            assert.contains_error("Valid expression expected", parser.match, input)
+        end)
+
+        test("'Missing comma' on bad written action", function()
+            local input = 's <- { "bla" func }'
+            assert.contains_error("Missing comma", parser.match, input)
+        end)
+
+        test("'Valid identifier expected' on bad written action I", function()
+            local input = 's<-{"bla",}'
+            assert.contains_error("Valid identifier expected", parser.match, input)
+        end)
+
+        test("'Valid identifier expected' on bad written action II", function()
+            local input = [[
+                s <- {a , 
+                a <- "bla"
+            ]]
+            assert.contains_error("Valid identifier expected", parser.match, input)
+        end)
+
+        test("'Closing bracket expected' on bad written action I", function()
+            local input = 's <- { "bla", func'
+            assert.contains_error("Closing bracket expected", parser.match, input)
+        end)
+
+        test("'Closing bracket expected' on bad written action II", function()
+            local input = 's <- { "bla", a b c d'
+            assert.contains_error("Closing bracket expected", parser.match, input)
+        end)
+
+        test("'Valid choice expected' on bad written ordered choice I", function()
+            local input = [[
+                a <- 'a'
+                b <- 'b'
+                d <- 'd'
+                s <- a b / / d
+            ]]
+            assert.contains_error("Valid choice expected", parser.match, input)
+        end)
+
+        test("'Valid choice expected' on bad written ordered choice II", function()
+            local input = [[
+                s <- a b / d /
+                a <- 'a'
+                b <- 'b'
+                d <- 'd'
+            ]]
+            assert.contains_error("Valid choice expected", parser.match, input)
+        end)
+
+        test("invalid atom on bad written predicate expression I", function()
+            local input = [[
+                s <- a (! / &c)
+                a <- 'a'
+                b <- 'b'
+                c <- 'c'
+            ]]
+            assert.contains_error("Valid expression after predicate operator expected", parser.match, input)
+        end)
+
+        test("invalid atom on bad written predicate expression II", function()
+            local input = [[
+                s <- a (!b / &)
+                a <- 'a'
+                b <- 'b'
+                c <- 'c'
+            ]]
+            assert.contains_error("Valid expression after predicate operator expected", parser.match, input)
+        end)
+
+        test("invalid atom on bad written predicate expression I", function()
+            local input = [[
+                s <- a (!~ / &c)
+                a <- 'a'
+                b <- 'b'
+                c <- 'c'
+            ]]
+            assert.contains_error("Valid expression after predicate operator expected", parser.match, input)
+        end)
+
+        test("'Closing parentheses expected' on bad written expression I", function()
+            local input = [[
+                s <- (s ("0" / "1" / %e)
+            ]]
+            assert.contains_error("Closing parentheses expected", parser.match, input)
+        end)
+
+        test("'Closing parentheses expected' on bad written expression II", function()
+            local input = [[
+                s <- (s ("0" / "1" / %e
+            ]]
+            assert.contains_error("Closing parentheses expected", parser.match, input)
+        end)
+
+        test("'Closing double quotes expected' on bad written literal I", function()
+            local input = 's <- "bla '
+            assert.contains_error("Closing double quotes expected", parser.match, input)
+        end)
+
+        test("'Closing double quotes expected' on bad written literal II", function()
+            local input = [[
+                s <- "bla \"
+            ]]
+            assert.contains_error("Closing double quotes expected", parser.match, input)
+        end)
+
+        test("'Closing single quotes expected' on bad written literal I", function()
+            local input = "s <- 'bla "
+            assert.contains_error("Closing single quotes expected", parser.match, input)
+        end)
+
+        test("'Closing single quotes expected' on bad written literal II", function()
+            local input = [[
+                s <- 'bla \'
+            ]]
+            assert.contains_error("Closing single quotes expected", parser.match, input)
+        end)
+
+        test("'Closing square bracket expected' on bad written character class I", function()
+            local input = 's <- "foo" [^"'
+            assert.contains_error("Closing square bracket expected", parser.match, input)
+        end)
+
+        test("'Closing square bracket expected' on bad written character class II", function()
+            local input = 's <- "foo" [^]"'
+            assert.contains_error("Closing square bracket expected", parser.match, input)
+        end)
+
+        test("'Right bound of range expected' on bad written range character class I", function()
+            local input = 's <- [xyz0-]'
+            assert.contains_error("Right bound of range expected", parser.match, input)
+        end)
+
+        test("'Right bound of range expected' on bad written range character class II", function()
+            local input = 's <- [xyz0-'
+            assert.contains_error("Right bound of range expected", parser.match, input)
+        end)
     end)
 end)
