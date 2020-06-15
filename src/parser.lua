@@ -57,7 +57,7 @@ local peg_grammar = [=[
 
     ID          <- [A-Za-z][A-Za-z0-9_]*
     predefined  <- '%' ID
-    class       <- {| {:tag: '' -> 'class' :} { ('[' '^'? item^ErrItem (!']' item)* ']'^ErrRSquare) / predefined } spaces |}
+    class       <- {| {:tag: '' -> 'class' :} { ('[' '^'? item (!']' item)* ']'^ErrRSquare) / predefined } spaces |}
     item        <- predefined / range / .
     range       <- . '-' [^]]^ErrRRange
 
@@ -71,11 +71,10 @@ M.errMsgs = {
     ErrID           = 'Valid identifier expected',
     ErrRBracket     = 'Closing bracket expected',
     ErrChoice       = 'Valid choice expected',
-    ErrAtom         = 'Valid token, character class, identifier or expression between parentheses expected',
+    ErrAtom         = 'Valid expression after predicate operator expected',
     ErrRPar         = 'Closing parentheses expected',
     ErrRQuotes      = 'Closing double quotes expected',
     ErrRQuote       = 'Closing single quotes expected',
-    ErrItem         = 'Valid body of character class expected',
     ErrRSquare      = 'Closing square bracket expected',
     ErrRRange       = 'Right bound of range expected',
 }

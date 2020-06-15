@@ -572,6 +572,34 @@ context("Parser", function ( )
             }
             assert.are.same(expected[2][2], parser.match(input)[2][2])
         end)
+
+        test("scaped quotes II", function()
+            local input = [[
+                s <- "'literal'" a '"another literal"'
+                a <- '\''*
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 's' },
+                    {
+                        tag = 'seq_exp',
+                        { tag = 'literal', "'literal'" },
+                        { tag = 'syn_sym', 'a' },
+                        { tag = 'literal', '"another literal"' },
+                    }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 'a' },
+                    {
+                        tag = 'star_exp',
+                        { tag = 'literal', "'" }
+                    }
+                }
+            }
+            assert.are.same(expected[2][2], parser.match(input)[2][2])
+        end)
     
         test("class with closing square bracket", function()
             local input = [=[
@@ -670,6 +698,114 @@ context("Parser", function ( )
         test("'Closing bracket expected' on bad written action II", function()
             local input = 's <- { "bla", a b c d'
             assert.contains_error("Closing bracket expected", parser.match, input)
+        end)
+
+        test("'Valid choice expected' on bad written ordered choice I", function()
+            local input = [[
+                a <- 'a'
+                b <- 'b'
+                d <- 'd'
+                s <- a b / / d
+            ]]
+            assert.contains_error("Valid choice expected", parser.match, input)
+        end)
+
+        test("'Valid choice expected' on bad written ordered choice II", function()
+            local input = [[
+                s <- a b / d /
+                a <- 'a'
+                b <- 'b'
+                d <- 'd'
+            ]]
+            assert.contains_error("Valid choice expected", parser.match, input)
+        end)
+
+        test("invalid atom on bad written predicate expression I", function()
+            local input = [[
+                s <- a (! / &c)
+                a <- 'a'
+                b <- 'b'
+                c <- 'c'
+            ]]
+            assert.contains_error("Valid expression after predicate operator expected", parser.match, input)
+        end)
+
+        test("invalid atom on bad written predicate expression II", function()
+            local input = [[
+                s <- a (!b / &)
+                a <- 'a'
+                b <- 'b'
+                c <- 'c'
+            ]]
+            assert.contains_error("Valid expression after predicate operator expected", parser.match, input)
+        end)
+
+        test("invalid atom on bad written predicate expression I", function()
+            local input = [[
+                s <- a (!~ / &c)
+                a <- 'a'
+                b <- 'b'
+                c <- 'c'
+            ]]
+            assert.contains_error("Valid expression after predicate operator expected", parser.match, input)
+        end)
+
+        test("'Closing parentheses expected' on bad written expression I", function()
+            local input = [[
+                s <- (s ("0" / "1" / %e)
+            ]]
+            assert.contains_error("Closing parentheses expected", parser.match, input)
+        end)
+
+        test("'Closing parentheses expected' on bad written expression II", function()
+            local input = [[
+                s <- (s ("0" / "1" / %e
+            ]]
+            assert.contains_error("Closing parentheses expected", parser.match, input)
+        end)
+
+        test("'Closing double quotes expected' on bad written literal I", function()
+            local input = 's <- "bla '
+            assert.contains_error("Closing double quotes expected", parser.match, input)
+        end)
+
+        test("'Closing double quotes expected' on bad written literal II", function()
+            local input = [[
+                s <- "bla \"
+            ]]
+            assert.contains_error("Closing double quotes expected", parser.match, input)
+        end)
+
+        test("'Closing single quotes expected' on bad written literal I", function()
+            local input = "s <- 'bla "
+            assert.contains_error("Closing single quotes expected", parser.match, input)
+        end)
+
+        test("'Closing single quotes expected' on bad written literal II", function()
+            local input = [[
+                s <- 'bla \'
+            ]]
+            assert.contains_error("Closing single quotes expected", parser.match, input)
+        end)
+
+        test("'Closing square bracket expected' on bad written character class I", function()
+            local input = 's <- "foo" [^"'
+            assert.contains_error("Closing square bracket expected", parser.match, input)
+        end)
+
+        test("'Closing square bracket expected' on bad written character class II", function()
+            local input = 's <- "foo" [^]"'
+            assert.contains_error("Closing square bracket expected", parser.match, input)
+        end)
+
+        test("'Right bound of range expected' on bad written range character class I", function()
+            local input = 's <- [xyz0-]'
+            assert.contains_error("Right bound of range expected", parser.match, input)
+        end)
+
+        test("'Right bound of range expected' on bad written range character class II", function()
+            local input = 's <- [xyz0-'
+            assert.contains_error("Right bound of range expected", parser.match, input)
         end)
     end)
 end)
