@@ -448,10 +448,6 @@ context("Parser", function ( )
             assert.are.same(expected, parser.match(input))
         end)
 
-        -- pending("fragment annotation", function()
-
-        -- end)
-
         test("a JSON grammar", function()
             local f = assert(io.open("./test/expected/json/grammar.peg", "r"))
             local input = f:read("a")
@@ -855,8 +851,12 @@ context("Parser", function ( )
             assert.contains_error("Closing single quotes expected", parser.match, input)
         end)
 
-        pending("'Closing backstick expected' on bad written keyword", function()
-
+        test("'Closing backstick expected' on bad written keyword", function()
+            local input = [[
+                s <- a `null
+                a <- "="
+            ]]
+            assert.contains_error("Closing backstick expected", parser.match, input)
         end)
 
         test("'Closing square bracket expected' on bad written character class I", function()
