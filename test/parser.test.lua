@@ -41,6 +41,38 @@ context("Parser", function ( )
                 assert.are.same(expected, ast)
             end)
 
+            test("a fragment", function()
+                local ast = parser.match("s <- 'a'")
+                local expected = {
+                    {
+                        tag = 'rule',
+                        {
+                            tag = 'syn_sym', 's'
+                        },
+                        {
+                            tag = 'fragment', 'a'
+                        }
+                    }
+                }
+                assert.are.same(expected, ast)
+            end)
+
+            test("a keyword", function()
+                local ast = parser.match('s <- `a`')
+                local expected = {
+                    {
+                        tag = 'rule',
+                        {
+                            tag = 'syn_sym', 's'
+                        },
+                        {
+                            tag = 'keyword', 'a'
+                        }
+                    }
+                }
+                assert.are.same(expected, ast)
+            end)
+
             test("spaces at the beginning", function()
                 local input = "    s <- 'a'"
                 local expected = {
@@ -50,7 +82,7 @@ context("Parser", function ( )
                             tag = 'syn_sym', 's'
                         },
                         {
-                            tag = 'literal', 'a'
+                            tag = 'fragment', 'a'
                         }
                     }
                 }
@@ -376,6 +408,14 @@ context("Parser", function ( )
             assert.are.same(expected, output)
         end)
 
+        pending("keyword annotation", function()
+
+        end)
+
+        pending("fragment annotation", function()
+            
+        end)
+
         test("a JSON grammar", function()
             local f = assert(io.open("./test/expected/json/grammar.peg", "r"))
             local input = f:read("a")
@@ -387,7 +427,7 @@ context("Parser", function ( )
 
         test("rule with semantic action", function()
             local input = [[
-                s       <- pair ("," pair)*
+                s       <- pair (',' pair)*
                 pair    <- { STRING ':' NUMBER, map_insert}
                 STRING  <- [a-zA-Z0-9_]+
                 NUMBER <- %d+ ('.' %d+)?
@@ -403,7 +443,7 @@ context("Parser", function ( )
                             tag = 'star_exp',
                             {
                                 tag = 'seq_exp',
-                                { tag = 'literal', ',' },
+                                { tag = 'fragment', ',' },
                                 { tag = 'syn_sym', 'pair' }
                             }
                         }
@@ -418,7 +458,7 @@ context("Parser", function ( )
                         {
                             tag = 'seq_exp',
                             { tag = 'lex_sym', 'STRING' },
-                            { tag = 'literal', ':' },
+                            { tag = 'fragment', ':' },
                             { tag = 'lex_sym', 'NUMBER' },
                         },
                     }
@@ -444,7 +484,7 @@ context("Parser", function ( )
                             tag = 'opt_exp',
                             {
                                 tag = 'seq_exp',
-                                { tag = 'literal', '.' },
+                                { tag = 'fragment', '.' },
                                 {
                                     tag = 'rep_exp',
                                     { tag = 'class', '%d' }
@@ -459,7 +499,7 @@ context("Parser", function ( )
 
         test("rule with nested semantic action", function()
             local input = [[
-                s       <- pair ("," pair)*
+                s       <- pair (',' pair)*
                 pair    <- { {STRING, parse_esc} ':' NUMBER, map_insert}
                 STRING  <- [a-zA-Z0-9_]+
                 NUMBER <- %d+ ('.' %d+)?
@@ -475,7 +515,7 @@ context("Parser", function ( )
                             tag = 'star_exp',
                             {
                                 tag = 'seq_exp',
-                                { tag = 'literal', ',' },
+                                { tag = 'fragment', ',' },
                                 { tag = 'syn_sym', 'pair' }
                             }
                         }
@@ -494,7 +534,7 @@ context("Parser", function ( )
                                 action = 'parse_esc',
                                 { tag = 'lex_sym', 'STRING' },
                             },
-                            { tag = 'literal', ':' },
+                            { tag = 'fragment', ':' },
                             { tag = 'lex_sym', 'NUMBER' },
                         },
                     }
@@ -520,7 +560,7 @@ context("Parser", function ( )
                             tag = 'opt_exp',
                             {
                                 tag = 'seq_exp',
-                                { tag = 'literal', '.' },
+                                { tag = 'fragment', '.' },
                                 {
                                     tag = 'rep_exp',
                                     { tag = 'class', '%d' }
@@ -566,17 +606,16 @@ context("Parser", function ( )
                     { tag = 'syn_sym', 'a' },
                     {
                         tag = 'star_exp',
-                        { tag = 'literal', "'" }
+                        { tag = 'fragment', "'" }
                     }
                 }
             }
-            assert.are.same(expected[2][2], parser.match(input)[2][2])
+            assert.are.same(expected, parser.match(input))
         end)
 
         test("scaped quotes II", function()
             local input = [[
-                s <- "'literal'" a '"another literal"'
-                a <- '\''*
+                s <- "'literal'" `\"a\"` '"fragment"'
             ]]
             local expected = {
                 {
@@ -585,20 +624,12 @@ context("Parser", function ( )
                     {
                         tag = 'seq_exp',
                         { tag = 'literal', "'literal'" },
-                        { tag = 'syn_sym', 'a' },
-                        { tag = 'literal', '"another literal"' },
+                        { tag = 'keyword', '"a"' },
+                        { tag = 'fragment', '"fragment"' },
                     }
                 },
-                {
-                    tag = 'rule',
-                    { tag = 'syn_sym', 'a' },
-                    {
-                        tag = 'star_exp',
-                        { tag = 'literal', "'" }
-                    }
-                }
             }
-            assert.are.same(expected[2][2], parser.match(input)[2][2])
+            assert.are.same(expected, parser.match(input))
         end)
     
         test("class with closing square bracket", function()
@@ -776,16 +807,20 @@ context("Parser", function ( )
             assert.contains_error("Closing double quotes expected", parser.match, input)
         end)
 
-        test("'Closing single quotes expected' on bad written literal I", function()
+        test("'Closing single quotes expected' on bad written fragment I", function()
             local input = "s <- 'bla "
             assert.contains_error("Closing single quotes expected", parser.match, input)
         end)
 
-        test("'Closing single quotes expected' on bad written literal II", function()
+        test("'Closing single quotes expected' on bad written fragment II", function()
             local input = [[
                 s <- 'bla \'
             ]]
             assert.contains_error("Closing single quotes expected", parser.match, input)
+        end)
+
+        pending("'Closing backstick expected' on bad written keyword", function()
+
         end)
 
         test("'Closing square bracket expected' on bad written character class I", function()
@@ -806,6 +841,10 @@ context("Parser", function ( )
         test("'Right bound of range expected' on bad written range character class II", function()
             local input = 's <- [xyz0-'
             assert.contains_error("Right bound of range expected", parser.match, input)
+        end)
+
+        pending("'Missing annotation' on bad written annotation", function()
+
         end)
     end)
 end)

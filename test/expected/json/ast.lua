@@ -14,7 +14,7 @@ return {
             { tag = 'lex_sym', 'BOOLEAN' },
             { tag = 'lex_sym', 'STRING' },
             { tag = 'lex_sym', 'NUMBER' },
-            { tag = 'literal', 'null' },
+            { tag = 'keyword', 'null' },
         }
     },
     {
@@ -54,8 +54,8 @@ return {
         { tag = 'lex_sym', 'BOOLEAN' },
         {
             tag = 'ord_exp',
-            { tag = 'literal', 'true' },
-            { tag = 'literal', 'false' },
+            { tag = 'keyword', 'true' },
+            { tag = 'keyword', 'false' },
         },
     },
     {
@@ -63,7 +63,7 @@ return {
         { tag = 'syn_sym', 'array' },
         {
             tag = 'seq_exp',
-            { tag = 'literal', '['},
+            { tag = 'fragment', '['},
             {
                 tag = 'opt_exp',
                 {
@@ -73,13 +73,13 @@ return {
                         tag = 'star_exp',
                         {
                             tag = 'seq_exp',
-                            { tag = 'literal', ','},
+                            { tag = 'fragment', ','},
                             { tag = 'syn_sym', 'value'}
                         }
                     }
                 }
             },
-            { tag = 'literal', ']'},
+            { tag = 'fragment', ']'},
         }
     },
     {
@@ -87,7 +87,7 @@ return {
         { tag = 'syn_sym', 'object' },
         {
             tag = 'seq_exp',
-            { tag = 'literal', '{'},
+            { tag = 'fragment', '{'},
             {
                 tag = 'opt_exp',
                 {
@@ -97,13 +97,13 @@ return {
                         tag = 'star_exp',
                         {
                             tag = 'seq_exp',
-                            { tag = 'literal', ','},
+                            { tag = 'fragment', ','},
                             { tag = 'syn_sym', 'pair'}
                         }
                     }
                 }
             },
-            { tag = 'literal', '}'},
+            { tag = 'fragment', '}'},
         }
     },
     {
@@ -112,7 +112,7 @@ return {
         {
             tag = 'seq_exp',
             { tag = 'syn_sym', 'string' },
-            { tag = 'literal', ':' },
+            { tag = 'fragment', ':' },
             { tag = 'syn_sym', 'value' }
         }
     }

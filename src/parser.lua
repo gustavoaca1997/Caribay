@@ -3,7 +3,6 @@ local lp = require"lpeglabel"
 
 local M = {}
 
--- TODO: Insert error labels for better error reporting
 -- TODO: Fragment annotation. Idea: Fragments are single quoted.
 -- TODO: Keyword annotation. Idea: Keywords use backsticks.
 
@@ -31,6 +30,8 @@ local peg_grammar = [=[
     RQUOTES     <- '"' spaces
     LQUOTE      <- "'"
     RQUOTE      <- "'" spaces
+    LBSTICK     <- "`"
+    RBSTICK     <- "`" spaces
     LBRACKET    <- '{' spaces
     RBRACKET    <- '}' spaces
     COMMA       <- ',' spaces
@@ -50,10 +51,13 @@ local peg_grammar = [=[
 
     atom    <- token / class / name / LPAR exp RPAR^ErrRPar / action
 
-    LITERAL <- {| {:tag: '' -> 'literal' :}    (LQUOTES ('\"' / [^"])* -> parse_esc RQUOTES^ErrRQuotes / LQUOTE ("\'" / [^'])* -> parse_esc RQUOTE^ErrRQuote ) |}
+    LITERAL     <- {| {:tag: '' -> 'literal' :}    LQUOTES  ('\"' / [^"])* -> parse_esc RQUOTES^ErrRQuotes |}
+    FRAGMENT    <- {| {:tag: '' -> 'fragment' :}   LQUOTE   ("\'" / [^'])* -> parse_esc RQUOTE^ErrRQuote |}
+    KEYWORD     <- {| {:tag: '' -> 'keyword' :}    LBSTICK  [^`]+ -> parse_esc RBSTICK^ErrRBStick|}
+
     ANY     <- {| {:tag: '' -> 'any' :}        { '.' } spaces |}
     EMPTY   <- {| {:tag: '' -> 'empty' :}      ('%e' 'mpty'? -> '%%e') spaces |}
-    token   <- LITERAL / ANY / EMPTY
+    token   <- LITERAL / FRAGMENT / KEYWORD / ANY / EMPTY
 
     ID          <- [A-Za-z][A-Za-z0-9_]*
     predefined  <- '%' ID
@@ -75,6 +79,7 @@ M.errMsgs = {
     ErrRPar         = 'Closing parentheses expected',
     ErrRQuotes      = 'Closing double quotes expected',
     ErrRQuote       = 'Closing single quotes expected',
+    ErrRBStick      = 'Closing backstick expected',
     ErrRSquare      = 'Closing square bracket expected',
     ErrRRange       = 'Right bound of range expected',
 }
