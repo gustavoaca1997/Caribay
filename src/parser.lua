@@ -8,7 +8,7 @@ local M = {}
 
 local peg_grammar = [=[
     S       <- [%s%nl]* {| rule+ |} !.
-    rule    <- {| {:tag: '' -> 'rule' :} name ARROW^ErrArrow exp^ErrExp (newlines / !. / %{ErrRuleEnd}) |}
+    rule    <- {| {:tag: '' -> 'rule' :} {:keyword: '@' -> 'true' :}? name ARROW^ErrArrow exp^ErrExp (newlines / !. / %{ErrRuleEnd}) |}
 
     spaces      <- " "*
     newlines    <- %nl %s*
@@ -121,8 +121,9 @@ function M.match(inp)
     local ast, errLabel, pos = peg_parser:match(inp)
     if not ast then
         local ln, col = re.calcline(inp, pos)
+        local suffErrMsg = errLabel ~= "fail" and M.errMsgs[errLabel] or "fail"
         local errMsg = "Error at line " .. ln .. ", column " .. col .. ": " ..
-            M.errMsgs[errLabel]
+            suffErrMsg
         error(errMsg)
     end
     return ast

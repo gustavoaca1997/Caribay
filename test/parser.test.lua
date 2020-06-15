@@ -408,13 +408,49 @@ context("Parser", function ( )
             assert.are.same(expected, output)
         end)
 
-        pending("keyword annotation", function()
-
+        test("keyword annotation", function()
+            local input = [[
+                type <- "number" / "string" / VECTOR
+                @VECTOR <- "vector" ([1-9][0-9]*)?
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 'type' },
+                    {
+                        tag = 'ord_exp',
+                        { tag = 'literal', 'number' },
+                        { tag = 'literal', 'string' },
+                        { tag = 'lex_sym', 'VECTOR' },
+                    }
+                },
+                {
+                    tag = 'rule',
+                    keyword = 'true',
+                    { tag = 'lex_sym', 'VECTOR' },
+                    {
+                        tag = 'seq_exp',
+                        { tag = 'literal', 'vector' },
+                        {
+                            tag = 'opt_exp',
+                            {
+                                tag = 'seq_exp',
+                                { tag = 'class', '[1-9]' },
+                                {
+                                    tag = 'star_exp',
+                                    { tag = 'class', '[0-9]' },
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            assert.are.same(expected, parser.match(input))
         end)
 
-        pending("fragment annotation", function()
-            
-        end)
+        -- pending("fragment annotation", function()
+
+        -- end)
 
         test("a JSON grammar", function()
             local f = assert(io.open("./test/expected/json/grammar.peg", "r"))
@@ -843,8 +879,8 @@ context("Parser", function ( )
             assert.contains_error("Right bound of range expected", parser.match, input)
         end)
 
-        pending("'Missing annotation' on bad written annotation", function()
+        -- pending("'Missing annotation' on bad written annotation", function()
 
-        end)
+        -- end)
     end)
 end)
