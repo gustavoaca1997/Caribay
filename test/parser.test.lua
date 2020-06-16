@@ -1,20 +1,5 @@
-local function contains_error(state, arguments)
-    local expectedMsg, toCall = table.unpack(arguments)
-
-    local ok, errMsg = pcall(toCall, table.unpack(arguments, 3))
-    if ok then
-        return false
-    else
-        local pos = string.find( errMsg, expectedMsg )
-        if pos then
-            return true
-        else
-            error(errMsg)
-        end
-    end
-end
-
-assert:register("assertion", "contains_error", contains_error)
+local assertions = require"test.assertions"
+assert:register("assertion", "contains_error", assertions.contains_error)
 
 context("Parser", function ( )
     local parser

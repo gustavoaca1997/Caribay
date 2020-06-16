@@ -3,10 +3,6 @@ local lp = require"lpeglabel"
 
 local M = {}
 
--- TODO: Check lexical rules only use lexical symbols
--- TODO: Check that fragments are only called from lexical rules.
--- TODO: Save on a table all the symbols, with info about their types and annotations.
-
 local peg_grammar = [=[
     S       <- [%s%nl]* {| rule+ |} !.
     rule    <- {| {:tag: '' -> 'rule' :} {:fragment: frgmnt_annot -> 'true' :}? {:keyword: AT -> 'true' :}? name ARROW^ErrArrow exp^ErrExp (newlines / !. / %{ErrRuleEnd}) |}
