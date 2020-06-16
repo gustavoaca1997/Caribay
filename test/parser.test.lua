@@ -34,7 +34,41 @@ context("Parser", function ( )
                             tag = 'syn_sym', 's'
                         },
                         {
+                            tag = 'literal',
+                            captured = 'true',
+                            'a'
+                        }
+                    }
+                }
+                assert.are.same(expected, ast)
+            end)
+
+            test("a literal", function()
+                local ast = parser.match("s <- 'a'")
+                local expected = {
+                    {
+                        tag = 'rule',
+                        {
+                            tag = 'syn_sym', 's'
+                        },
+                        {
                             tag = 'literal', 'a'
+                        }
+                    }
+                }
+                assert.are.same(expected, ast)
+            end)
+
+            test("a keyword", function()
+                local ast = parser.match('s <- `a`')
+                local expected = {
+                    {
+                        tag = 'rule',
+                        {
+                            tag = 'syn_sym', 's'
+                        },
+                        {
+                            tag = 'keyword', 'a'
                         }
                     }
                 }
@@ -68,8 +102,8 @@ context("Parser", function ( )
                         },
                         {
                             tag = 'ord_exp',
-                            { tag = 'literal', 'a' },
-                            { tag = 'literal', 'b' },
+                            { tag = 'literal', captured = 'true', 'a' },
+                            { tag = 'literal', captured = 'true', 'b' },
                         }
                     }
                 }
@@ -88,10 +122,14 @@ context("Parser", function ( )
                         {
                             tag = 'seq_exp',
                             {
-                                tag = 'literal', 'a'
+                                tag = 'literal', 
+                                captured = 'true',
+                                'a'
                             },
                             {
-                                tag = 'literal', 'b'
+                                tag = 'literal', 
+                                captured = 'true',
+                                'b'
                             }
                         }
                     }
@@ -109,10 +147,10 @@ context("Parser", function ( )
                             tag = 'ord_exp',
                             {
                                 tag = 'seq_exp',
-                                { tag = 'literal', 'a' },
-                                { tag = 'literal', 'b' }
+                                { tag = 'literal', captured = 'true', 'a' },
+                                { tag = 'literal', captured = 'true', 'b' }
                             },
-                            { tag = 'literal', 'c'}
+                            { tag = 'literal', captured = 'true', 'c'}
                         }
                     }
                 }
@@ -129,7 +167,7 @@ context("Parser", function ( )
                         },
                         {
                             tag = 'star_exp',
-                            { tag = 'literal', 'a' }
+                            { tag = 'literal', captured = 'true', 'a' }
                         }
                     }
                 }
@@ -255,7 +293,7 @@ context("Parser", function ( )
                         {
                             tag = 'seq_exp',
                             { tag = 'any', '.' },
-                            { tag = 'literal', ', ' },
+                            { tag = 'literal', captured = 'true', ', ' },
                             { tag = 'any', '.' }
                         }
                     }
@@ -301,10 +339,10 @@ context("Parser", function ( )
                         { tag = 'class', '%s' },
                         { tag = 'class', '%d' },
                         { tag = 'class', '%d' },
-                        { tag = 'literal', '/' },
+                        { tag = 'literal', captured = 'true', '/' },
                         { tag = 'class', '%u' },
                         { tag = 'class', '%u' },
-                        { tag = 'literal', '/' },
+                        { tag = 'literal', captured = 'true', '/' },
                         { tag = 'class', '%d' },
                         { tag = 'class', '%d' },
                         { tag = 'class', '%d' },
@@ -328,14 +366,14 @@ context("Parser", function ( )
                     { 
                         tag = 'seq_exp',
                         {
-                            tag = 'literal', 'a'
+                            tag = 'literal', captured = 'true', 'a'
                         },
                         {
                             tag = 'star_exp',
                             {
                                 tag = 'seq_exp',
                                 {
-                                    tag = 'literal', ', '
+                                    tag = 'literal', captured = 'true', ', '
                                 },
                                 {
                                     tag = 'syn_sym', 's'
@@ -359,7 +397,7 @@ context("Parser", function ( )
                     { tag = 'syn_sym', 's' },
                     {
                         tag = 'seq_exp',
-                        { tag = 'literal', 'a' },
+                        { tag = 'literal', captured = 'true', 'a' },
                         { tag = 'syn_sym', 'as'}
                     }
                 },
@@ -368,12 +406,181 @@ context("Parser", function ( )
                     { tag = 'syn_sym', 'as' },
                     {
                         tag = 'star_exp',
-                        { tag = 'literal', ', a'}
+                        { tag = 'literal', captured = 'true', ', a'}
                     }
                 }
             }
             local output = parser.match(input)
             assert.are.same(expected, output)
+        end)
+
+        test("fragment annotation", function()
+            local input = [[
+                NUMBER <- INT / HEX / FLOAT
+                fragment INT <- %d+
+                fragment FLOAT <- %d+ '.' %d+
+                fragment HEX <- '0x' [0-9a-f]+
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'lex_sym', 'NUMBER' },
+                    {
+                        tag = 'ord_exp',
+                        { tag = 'lex_sym', 'INT' },
+                        { tag = 'lex_sym', 'HEX' },
+                        { tag = 'lex_sym', 'FLOAT' },
+                    }
+                },
+                {
+                    tag = 'rule',
+                    fragment = 'true',
+                    { tag = 'lex_sym', 'INT' },
+                    {
+                        tag = 'rep_exp',
+                        { tag = 'class', '%d' }
+                    }
+                },
+                {
+                    tag = 'rule',
+                    fragment = 'true',
+                    { tag = 'lex_sym', 'FLOAT' },
+                    {
+                        tag = 'seq_exp',
+                        {
+                            tag = 'rep_exp',
+                            { tag = 'class', '%d' },
+                        },
+                        { tag = 'literal', '.' },
+                        {
+                            tag = 'rep_exp',
+                            { tag = 'class', '%d' },
+                        },
+                    }
+                },
+                {
+                    tag = 'rule',
+                    fragment = 'true',
+                    { tag = 'lex_sym', 'HEX' },
+                    {
+                        tag = 'seq_exp',
+                        { tag = 'literal', '0x' },
+                        {
+                            tag = 'rep_exp',
+                            { tag = 'class', '[0-9a-f]' },
+                        }
+                    }
+                }
+            }
+            assert.are.same(expected, parser.match(input))
+        end)
+
+        test("syntactic symbol with 'fragment' as preffix", function()
+            local input = [[
+                s <- fragment_moon*
+                fragment_moon <- "(|"
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 's' },
+                    {
+                        tag = 'star_exp',
+                        { tag = 'syn_sym', 'fragment_moon' }
+                    },
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 'fragment_moon' },
+                    {
+                        tag = 'literal',
+                        captured = 'true',
+                        '(|'
+                    }
+                }
+            }
+            assert.are.same(expected, parser.match(input))
+        end)
+
+        test("keyword annotation", function()
+            local input = [[
+                type <- "number" / "string" / VECTOR
+                @VECTOR <- "vector" ([1-9][0-9]*)?
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 'type' },
+                    {
+                        tag = 'ord_exp',
+                        { tag = 'literal', captured = 'true', 'number' },
+                        { tag = 'literal', captured = 'true', 'string' },
+                        { tag = 'lex_sym', 'VECTOR' },
+                    }
+                },
+                {
+                    tag = 'rule',
+                    keyword = 'true',
+                    { tag = 'lex_sym', 'VECTOR' },
+                    {
+                        tag = 'seq_exp',
+                        { tag = 'literal', captured = 'true', 'vector' },
+                        {
+                            tag = 'opt_exp',
+                            {
+                                tag = 'seq_exp',
+                                { tag = 'class', '[1-9]' },
+                                {
+                                    tag = 'star_exp',
+                                    { tag = 'class', '[0-9]' },
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            assert.are.same(expected, parser.match(input))
+        end)
+
+        test("keyword and fragment annotation", function()
+            local input = [[
+                type <- "number" / "string" / VECTOR
+                fragment @VECTOR <- "vector" ([1-9][0-9]*)?
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 'type' },
+                    {
+                        tag = 'ord_exp',
+                        { tag = 'literal', captured = 'true', 'number' },
+                        { tag = 'literal', captured = 'true', 'string' },
+                        { tag = 'lex_sym', 'VECTOR' },
+                    }
+                },
+                {
+                    tag = 'rule',
+                    fragment = 'true',
+                    keyword = 'true',
+                    { tag = 'lex_sym', 'VECTOR' },
+                    {
+                        tag = 'seq_exp',
+                        { tag = 'literal', captured = 'true', 'vector' },
+                        {
+                            tag = 'opt_exp',
+                            {
+                                tag = 'seq_exp',
+                                { tag = 'class', '[1-9]' },
+                                {
+                                    tag = 'star_exp',
+                                    { tag = 'class', '[0-9]' },
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            assert.are.same(expected, parser.match(input))
         end)
 
         test("a JSON grammar", function()
@@ -387,7 +594,7 @@ context("Parser", function ( )
 
         test("rule with semantic action", function()
             local input = [[
-                s       <- pair ("," pair)*
+                s       <- pair (',' pair)*
                 pair    <- { STRING ':' NUMBER, map_insert}
                 STRING  <- [a-zA-Z0-9_]+
                 NUMBER <- %d+ ('.' %d+)?
@@ -459,7 +666,7 @@ context("Parser", function ( )
 
         test("rule with nested semantic action", function()
             local input = [[
-                s       <- pair ("," pair)*
+                s       <- pair (',' pair)*
                 pair    <- { {STRING, parse_esc} ':' NUMBER, map_insert}
                 STRING  <- [a-zA-Z0-9_]+
                 NUMBER <- %d+ ('.' %d+)?
@@ -539,7 +746,7 @@ context("Parser", function ( )
                 {
                     tag = 'rule',
                     { tag = 'syn_sym', 's' },
-                    { tag = 'literal', '"' }
+                    { tag = 'literal', captured = 'true', '"' }
                 },
             }
             assert.are.same(expected, parser.match(input))
@@ -556,9 +763,9 @@ context("Parser", function ( )
                     { tag = 'syn_sym', 's' },
                     {
                         tag = 'seq_exp',
-                        { tag = 'literal', '"' },
+                        { tag = 'literal', captured = 'true', '"' },
                         { tag = 'syn_sym', 'a' },
-                        { tag = 'literal', '"' },
+                        { tag = 'literal', captured = 'true', '"' },
                     }
                 },
                 {
@@ -570,13 +777,12 @@ context("Parser", function ( )
                     }
                 }
             }
-            assert.are.same(expected[2][2], parser.match(input)[2][2])
+            assert.are.same(expected, parser.match(input))
         end)
 
         test("scaped quotes II", function()
             local input = [[
-                s <- "'literal'" a '"another literal"'
-                a <- '\''*
+                s <- "'literal'" `\"a\"` '"not captured"'
             ]]
             local expected = {
                 {
@@ -584,21 +790,13 @@ context("Parser", function ( )
                     { tag = 'syn_sym', 's' },
                     {
                         tag = 'seq_exp',
-                        { tag = 'literal', "'literal'" },
-                        { tag = 'syn_sym', 'a' },
-                        { tag = 'literal', '"another literal"' },
+                        { tag = 'literal', captured = 'true', "'literal'" },
+                        { tag = 'keyword', '"a"' },
+                        { tag = 'literal', '"not captured"' },
                     }
                 },
-                {
-                    tag = 'rule',
-                    { tag = 'syn_sym', 'a' },
-                    {
-                        tag = 'star_exp',
-                        { tag = 'literal', "'" }
-                    }
-                }
             }
-            assert.are.same(expected[2][2], parser.match(input)[2][2])
+            assert.are.same(expected, parser.match(input))
         end)
     
         test("class with closing square bracket", function()
@@ -624,6 +822,22 @@ context("Parser", function ( )
                 a "break"
             ]]
             assert.contains_error("Arrow expected", parser.match, input)
+        end)
+
+        test("'Lexical identifier expected' on bad written fragment annotation I", function()
+            local input = [[
+                type <- "number" / "string" / VECTOR
+                fragment vector <- "vector" ([1-9][0-9]*)?
+            ]]
+            assert.contains_error("Lexical identifier expected", parser.match, input)
+        end)
+
+        test("'Lexical identifier expected' on bad written fragment annotation II", function()
+            local input = [[
+                type <- "number" / "string" / VECTOR
+                fragment @vector <- "vector" ([1-9][0-9]*)?
+            ]]
+            assert.contains_error("Lexical identifier expected", parser.match, input)
         end)
 
         test("'Valid expression expected' on bad written rule", function()
@@ -788,6 +1002,14 @@ context("Parser", function ( )
             assert.contains_error("Closing single quotes expected", parser.match, input)
         end)
 
+        test("'Closing backstick expected' on bad written keyword", function()
+            local input = [[
+                s <- a `null
+                a <- "="
+            ]]
+            assert.contains_error("Closing backstick expected", parser.match, input)
+        end)
+
         test("'Closing square bracket expected' on bad written character class I", function()
             local input = 's <- "foo" [^"'
             assert.contains_error("Closing square bracket expected", parser.match, input)
@@ -807,5 +1029,9 @@ context("Parser", function ( )
             local input = 's <- [xyz0-'
             assert.contains_error("Right bound of range expected", parser.match, input)
         end)
+
+        -- pending("'Missing annotation' on bad written annotation", function()
+
+        -- end)
     end)
 end)

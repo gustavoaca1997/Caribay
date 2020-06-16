@@ -1,10 +1,10 @@
 json    <- value
-value   <- object / array / BOOLEAN / STRING / NUMBER / "null"
+value   <- object / array / BOOLEAN / STRING / NUMBER / `null`
 
-NUMBER  <- %d+ ("." %d+)?
-STRING  <-  "\"" [^"] "\""
-BOOLEAN <- "true" / "false"
+NUMBER  <- %d+ ('.' %d+)?
+STRING  <-  '"' [^"] '"'
+BOOLEAN <- `true` / `false`
 
-array   <- "[" (value ("," value)*)? "]"
-object  <- "{" (pair ("," pair)*)? "}"
-pair    <- string ":" value
+array   <- '[' (value (',' value)*)? ']'
+object  <- '{' (pair (',' pair)*)? '}'
+pair    <- string ':' value

@@ -14,7 +14,7 @@ return {
             { tag = 'lex_sym', 'BOOLEAN' },
             { tag = 'lex_sym', 'STRING' },
             { tag = 'lex_sym', 'NUMBER' },
-            { tag = 'literal', 'null' },
+            { tag = 'keyword', 'null' },
         }
     },
     {
@@ -54,8 +54,8 @@ return {
         { tag = 'lex_sym', 'BOOLEAN' },
         {
             tag = 'ord_exp',
-            { tag = 'literal', 'true' },
-            { tag = 'literal', 'false' },
+            { tag = 'keyword', 'true' },
+            { tag = 'keyword', 'false' },
         },
     },
     {

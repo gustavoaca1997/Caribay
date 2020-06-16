@@ -3,43 +3,49 @@ local lp = require"lpeglabel"
 
 local M = {}
 
--- TODO: Insert error labels for better error reporting
--- TODO: Fragment annotation. Idea: Fragments are single quoted.
--- TODO: Keyword annotation. Idea: Keywords use backsticks.
+-- TODO: Check lexical rules only use lexical symbols
+-- TODO: Check that fragments are only called from lexical rules.
+-- TODO: Save on a table all the symbols, with info about their types and annotations.
 
 local peg_grammar = [=[
     S       <- [%s%nl]* {| rule+ |} !.
-    rule    <- {| {:tag: '' -> 'rule' :} name ARROW^ErrArrow exp^ErrExp (newlines / !. / %{ErrRuleEnd}) |}
-
-    spaces      <- " "*
+    rule    <- {| {:tag: '' -> 'rule' :} {:fragment: frgmnt_annot -> 'true' :}? {:keyword: AT -> 'true' :}? name ARROW^ErrArrow exp^ErrExp (newlines / !. / %{ErrRuleEnd}) |}
+    
+    frgmnt_annot <- 'fragment' spaces (&(AT? LEX_ID))^ErrLexId
+    AT          <- "@"
+    SPACE       <- " "
+    spaces      <- SPACE+
+    skip        <- SPACE*
     newlines    <- %nl %s*
 
-    LEX_ID  <- {| {:tag: '' -> 'lex_sym' :}    { [A-Z][A-Z0-9_]* } spaces |}
-    SYN_ID  <- {| {:tag: '' -> 'syn_sym' :}    { [a-z][a-zA-Z0-9_]* } spaces |}
+    LEX_ID  <- {| {:tag: '' -> 'lex_sym' :}    { [A-Z][A-Z0-9_]* } skip |}
+    SYN_ID  <- {| {:tag: '' -> 'syn_sym' :}    { [a-z][a-zA-Z0-9_]* } skip |}
     name    <- LEX_ID / SYN_ID
 
-    ARROW       <- '<-' spaces
-    ORD_OP      <- '/' spaces
-    STAR_OP     <- '*' spaces
-    REP_OP      <- '+' spaces
-    OPT_OP      <- '?' spaces
-    AND_OP      <- '&' spaces
-    NOT_OP      <- '!' spaces
-    LPAR        <- '(' spaces
-    RPAR        <- ')' spaces
+    ARROW       <- '<-' skip
+    ORD_OP      <- '/' skip
+    STAR_OP     <- '*' skip
+    REP_OP      <- '+' skip
+    OPT_OP      <- '?' skip
+    AND_OP      <- '&' skip
+    NOT_OP      <- '!' skip
+    LPAR        <- '(' skip
+    RPAR        <- ')' skip
     LQUOTES     <- '"'
-    RQUOTES     <- '"' spaces
+    RQUOTES     <- '"' skip
     LQUOTE      <- "'"
-    RQUOTE      <- "'" spaces
-    LBRACKET    <- '{' spaces
-    RBRACKET    <- '}' spaces
-    COMMA       <- ',' spaces
+    RQUOTE      <- "'" skip
+    LBSTICK     <- "`"
+    RBSTICK     <- "`" skip
+    LBRACKET    <- '{' skip
+    RBRACKET    <- '}' skip
+    COMMA       <- ',' skip
 
     exp     <- ord 
     action  <- {| {:tag: '' -> 'action' :} LBRACKET exp^ErrExp COMMA^ErrComma {:action: ID^ErrID :} RBRACKET^ErrRBracket |}
 
     ord     <- (seq (ORD_OP seq^ErrChoice)*)   -> parse_ord
-    seq     <- (unary (spaces unary)*)      -> parse_seq
+    seq     <- (unary (skip unary)*)      -> parse_seq
 
     unary   <- star / rep / opt / and / not / atom
     star    <- {| {:tag: '' -> 'star_exp' :}   atom STAR_OP |}
@@ -50,14 +56,17 @@ local peg_grammar = [=[
 
     atom    <- token / class / name / LPAR exp RPAR^ErrRPar / action
 
-    LITERAL <- {| {:tag: '' -> 'literal' :}    (LQUOTES ('\"' / [^"])* -> parse_esc RQUOTES^ErrRQuotes / LQUOTE ("\'" / [^'])* -> parse_esc RQUOTE^ErrRQuote ) |}
-    ANY     <- {| {:tag: '' -> 'any' :}        { '.' } spaces |}
-    EMPTY   <- {| {:tag: '' -> 'empty' :}      ('%e' 'mpty'? -> '%%e') spaces |}
-    token   <- LITERAL / ANY / EMPTY
+    LITERAL1    <- {| {:tag: '' -> 'literal' :} {:captured: '' -> 'true' :} LQUOTES  ('\"' / [^"])* -> parse_esc RQUOTES^ErrRQuotes |}
+    LITERAL2    <- {| {:tag: '' -> 'literal' :}  LQUOTE   ("\'" / [^'])* -> parse_esc RQUOTE^ErrRQuote |}
+    KEYWORD     <- {| {:tag: '' -> 'keyword' :}  LBSTICK  [^`]+ -> parse_esc RBSTICK^ErrRBStick|}
+
+    ANY     <- {| {:tag: '' -> 'any' :}        { '.' } skip |}
+    EMPTY   <- {| {:tag: '' -> 'empty' :}      ('%e' 'mpty'? -> '%%e') skip |}
+    token   <- LITERAL1 / LITERAL2 / KEYWORD / ANY / EMPTY
 
     ID          <- [A-Za-z][A-Za-z0-9_]*
     predefined  <- '%' ID
-    class       <- {| {:tag: '' -> 'class' :} { ('[' '^'? item (!']' item)* ']'^ErrRSquare) / predefined } spaces |}
+    class       <- {| {:tag: '' -> 'class' :} { ('[' '^'? item (!']' item)* ']'^ErrRSquare) / predefined } skip |}
     item        <- predefined / range / .
     range       <- . '-' [^]]^ErrRRange
 
@@ -65,6 +74,7 @@ local peg_grammar = [=[
 
 M.errMsgs = {
     ErrArrow        = 'Arrow expected',
+    ErrLexId        = 'Lexical identifier expected',
     ErrExp          = 'Valid expression expected',
     ErrRuleEnd      = 'Missing end of rule',
     ErrComma        = 'Missing comma',
@@ -75,6 +85,7 @@ M.errMsgs = {
     ErrRPar         = 'Closing parentheses expected',
     ErrRQuotes      = 'Closing double quotes expected',
     ErrRQuote       = 'Closing single quotes expected',
+    ErrRBStick      = 'Closing backstick expected',
     ErrRSquare      = 'Closing square bracket expected',
     ErrRRange       = 'Right bound of range expected',
 }
@@ -116,8 +127,9 @@ function M.match(inp)
     local ast, errLabel, pos = peg_parser:match(inp)
     if not ast then
         local ln, col = re.calcline(inp, pos)
+        local suffErrMsg = errLabel ~= "fail" and M.errMsgs[errLabel] or "fail"
         local errMsg = "Error at line " .. ln .. ", column " .. col .. ": " ..
-            M.errMsgs[errLabel]
+            suffErrMsg
         error(errMsg)
     end
     return ast
