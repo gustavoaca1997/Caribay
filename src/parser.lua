@@ -51,13 +51,13 @@ local peg_grammar = [=[
 
     atom    <- token / class / name / LPAR exp RPAR^ErrRPar / action
 
-    LITERAL     <- {| {:tag: '' -> 'literal' :}    LQUOTES  ('\"' / [^"])* -> parse_esc RQUOTES^ErrRQuotes |}
-    FRAGMENT    <- {| {:tag: '' -> 'fragment' :}   LQUOTE   ("\'" / [^'])* -> parse_esc RQUOTE^ErrRQuote |}
-    KEYWORD     <- {| {:tag: '' -> 'keyword' :}    LBSTICK  [^`]+ -> parse_esc RBSTICK^ErrRBStick|}
+    LITERAL1    <- {| {:tag: '' -> 'literal' :} {:captured: '' -> 'true' :} LQUOTES  ('\"' / [^"])* -> parse_esc RQUOTES^ErrRQuotes |}
+    LITERAL2    <- {| {:tag: '' -> 'literal' :}  LQUOTE   ("\'" / [^'])* -> parse_esc RQUOTE^ErrRQuote |}
+    KEYWORD     <- {| {:tag: '' -> 'keyword' :}  LBSTICK  [^`]+ -> parse_esc RBSTICK^ErrRBStick|}
 
     ANY     <- {| {:tag: '' -> 'any' :}        { '.' } spaces |}
     EMPTY   <- {| {:tag: '' -> 'empty' :}      ('%e' 'mpty'? -> '%%e') spaces |}
-    token   <- LITERAL / FRAGMENT / KEYWORD / ANY / EMPTY
+    token   <- LITERAL1 / LITERAL2 / KEYWORD / ANY / EMPTY
 
     ID          <- [A-Za-z][A-Za-z0-9_]*
     predefined  <- '%' ID

@@ -34,14 +34,16 @@ context("Parser", function ( )
                             tag = 'syn_sym', 's'
                         },
                         {
-                            tag = 'literal', 'a'
+                            tag = 'literal',
+                            captured = 'true',
+                            'a'
                         }
                     }
                 }
                 assert.are.same(expected, ast)
             end)
 
-            test("a fragment", function()
+            test("a literal", function()
                 local ast = parser.match("s <- 'a'")
                 local expected = {
                     {
@@ -50,7 +52,7 @@ context("Parser", function ( )
                             tag = 'syn_sym', 's'
                         },
                         {
-                            tag = 'fragment', 'a'
+                            tag = 'literal', 'a'
                         }
                     }
                 }
@@ -82,7 +84,7 @@ context("Parser", function ( )
                             tag = 'syn_sym', 's'
                         },
                         {
-                            tag = 'fragment', 'a'
+                            tag = 'literal', 'a'
                         }
                     }
                 }
@@ -100,8 +102,8 @@ context("Parser", function ( )
                         },
                         {
                             tag = 'ord_exp',
-                            { tag = 'literal', 'a' },
-                            { tag = 'literal', 'b' },
+                            { tag = 'literal', captured = 'true', 'a' },
+                            { tag = 'literal', captured = 'true', 'b' },
                         }
                     }
                 }
@@ -120,10 +122,14 @@ context("Parser", function ( )
                         {
                             tag = 'seq_exp',
                             {
-                                tag = 'literal', 'a'
+                                tag = 'literal', 
+                                captured = 'true',
+                                'a'
                             },
                             {
-                                tag = 'literal', 'b'
+                                tag = 'literal', 
+                                captured = 'true',
+                                'b'
                             }
                         }
                     }
@@ -141,10 +147,10 @@ context("Parser", function ( )
                             tag = 'ord_exp',
                             {
                                 tag = 'seq_exp',
-                                { tag = 'literal', 'a' },
-                                { tag = 'literal', 'b' }
+                                { tag = 'literal', captured = 'true', 'a' },
+                                { tag = 'literal', captured = 'true', 'b' }
                             },
-                            { tag = 'literal', 'c'}
+                            { tag = 'literal', captured = 'true', 'c'}
                         }
                     }
                 }
@@ -161,7 +167,7 @@ context("Parser", function ( )
                         },
                         {
                             tag = 'star_exp',
-                            { tag = 'literal', 'a' }
+                            { tag = 'literal', captured = 'true', 'a' }
                         }
                     }
                 }
@@ -287,7 +293,7 @@ context("Parser", function ( )
                         {
                             tag = 'seq_exp',
                             { tag = 'any', '.' },
-                            { tag = 'literal', ', ' },
+                            { tag = 'literal', captured = 'true', ', ' },
                             { tag = 'any', '.' }
                         }
                     }
@@ -333,10 +339,10 @@ context("Parser", function ( )
                         { tag = 'class', '%s' },
                         { tag = 'class', '%d' },
                         { tag = 'class', '%d' },
-                        { tag = 'literal', '/' },
+                        { tag = 'literal', captured = 'true', '/' },
                         { tag = 'class', '%u' },
                         { tag = 'class', '%u' },
-                        { tag = 'literal', '/' },
+                        { tag = 'literal', captured = 'true', '/' },
                         { tag = 'class', '%d' },
                         { tag = 'class', '%d' },
                         { tag = 'class', '%d' },
@@ -360,14 +366,14 @@ context("Parser", function ( )
                     { 
                         tag = 'seq_exp',
                         {
-                            tag = 'literal', 'a'
+                            tag = 'literal', captured = 'true', 'a'
                         },
                         {
                             tag = 'star_exp',
                             {
                                 tag = 'seq_exp',
                                 {
-                                    tag = 'literal', ', '
+                                    tag = 'literal', captured = 'true', ', '
                                 },
                                 {
                                     tag = 'syn_sym', 's'
@@ -391,7 +397,7 @@ context("Parser", function ( )
                     { tag = 'syn_sym', 's' },
                     {
                         tag = 'seq_exp',
-                        { tag = 'literal', 'a' },
+                        { tag = 'literal', captured = 'true', 'a' },
                         { tag = 'syn_sym', 'as'}
                     }
                 },
@@ -400,7 +406,7 @@ context("Parser", function ( )
                     { tag = 'syn_sym', 'as' },
                     {
                         tag = 'star_exp',
-                        { tag = 'literal', ', a'}
+                        { tag = 'literal', captured = 'true', ', a'}
                     }
                 }
             }
@@ -419,8 +425,8 @@ context("Parser", function ( )
                     { tag = 'syn_sym', 'type' },
                     {
                         tag = 'ord_exp',
-                        { tag = 'literal', 'number' },
-                        { tag = 'literal', 'string' },
+                        { tag = 'literal', captured = 'true', 'number' },
+                        { tag = 'literal', captured = 'true', 'string' },
                         { tag = 'lex_sym', 'VECTOR' },
                     }
                 },
@@ -430,7 +436,7 @@ context("Parser", function ( )
                     { tag = 'lex_sym', 'VECTOR' },
                     {
                         tag = 'seq_exp',
-                        { tag = 'literal', 'vector' },
+                        { tag = 'literal', captured = 'true', 'vector' },
                         {
                             tag = 'opt_exp',
                             {
@@ -475,7 +481,7 @@ context("Parser", function ( )
                             tag = 'star_exp',
                             {
                                 tag = 'seq_exp',
-                                { tag = 'fragment', ',' },
+                                { tag = 'literal', ',' },
                                 { tag = 'syn_sym', 'pair' }
                             }
                         }
@@ -490,7 +496,7 @@ context("Parser", function ( )
                         {
                             tag = 'seq_exp',
                             { tag = 'lex_sym', 'STRING' },
-                            { tag = 'fragment', ':' },
+                            { tag = 'literal', ':' },
                             { tag = 'lex_sym', 'NUMBER' },
                         },
                     }
@@ -516,7 +522,7 @@ context("Parser", function ( )
                             tag = 'opt_exp',
                             {
                                 tag = 'seq_exp',
-                                { tag = 'fragment', '.' },
+                                { tag = 'literal', '.' },
                                 {
                                     tag = 'rep_exp',
                                     { tag = 'class', '%d' }
@@ -547,7 +553,7 @@ context("Parser", function ( )
                             tag = 'star_exp',
                             {
                                 tag = 'seq_exp',
-                                { tag = 'fragment', ',' },
+                                { tag = 'literal', ',' },
                                 { tag = 'syn_sym', 'pair' }
                             }
                         }
@@ -566,7 +572,7 @@ context("Parser", function ( )
                                 action = 'parse_esc',
                                 { tag = 'lex_sym', 'STRING' },
                             },
-                            { tag = 'fragment', ':' },
+                            { tag = 'literal', ':' },
                             { tag = 'lex_sym', 'NUMBER' },
                         },
                     }
@@ -592,7 +598,7 @@ context("Parser", function ( )
                             tag = 'opt_exp',
                             {
                                 tag = 'seq_exp',
-                                { tag = 'fragment', '.' },
+                                { tag = 'literal', '.' },
                                 {
                                     tag = 'rep_exp',
                                     { tag = 'class', '%d' }
@@ -611,7 +617,7 @@ context("Parser", function ( )
                 {
                     tag = 'rule',
                     { tag = 'syn_sym', 's' },
-                    { tag = 'literal', '"' }
+                    { tag = 'literal', captured = 'true', '"' }
                 },
             }
             assert.are.same(expected, parser.match(input))
@@ -628,9 +634,9 @@ context("Parser", function ( )
                     { tag = 'syn_sym', 's' },
                     {
                         tag = 'seq_exp',
-                        { tag = 'literal', '"' },
+                        { tag = 'literal', captured = 'true', '"' },
                         { tag = 'syn_sym', 'a' },
-                        { tag = 'literal', '"' },
+                        { tag = 'literal', captured = 'true', '"' },
                     }
                 },
                 {
@@ -638,7 +644,7 @@ context("Parser", function ( )
                     { tag = 'syn_sym', 'a' },
                     {
                         tag = 'star_exp',
-                        { tag = 'fragment', "'" }
+                        { tag = 'literal', "'" }
                     }
                 }
             }
@@ -647,7 +653,7 @@ context("Parser", function ( )
 
         test("scaped quotes II", function()
             local input = [[
-                s <- "'literal'" `\"a\"` '"fragment"'
+                s <- "'literal'" `\"a\"` '"not captured"'
             ]]
             local expected = {
                 {
@@ -655,9 +661,9 @@ context("Parser", function ( )
                     { tag = 'syn_sym', 's' },
                     {
                         tag = 'seq_exp',
-                        { tag = 'literal', "'literal'" },
+                        { tag = 'literal', captured = 'true', "'literal'" },
                         { tag = 'keyword', '"a"' },
-                        { tag = 'fragment', '"fragment"' },
+                        { tag = 'literal', '"not captured"' },
                     }
                 },
             }
@@ -839,12 +845,12 @@ context("Parser", function ( )
             assert.contains_error("Closing double quotes expected", parser.match, input)
         end)
 
-        test("'Closing single quotes expected' on bad written fragment I", function()
+        test("'Closing single quotes expected' on bad written literal I", function()
             local input = "s <- 'bla "
             assert.contains_error("Closing single quotes expected", parser.match, input)
         end)
 
-        test("'Closing single quotes expected' on bad written fragment II", function()
+        test("'Closing single quotes expected' on bad written literal II", function()
             local input = [[
                 s <- 'bla \'
             ]]

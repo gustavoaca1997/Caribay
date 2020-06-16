@@ -63,7 +63,7 @@ return {
         { tag = 'syn_sym', 'array' },
         {
             tag = 'seq_exp',
-            { tag = 'fragment', '['},
+            { tag = 'literal', '['},
             {
                 tag = 'opt_exp',
                 {
@@ -73,13 +73,13 @@ return {
                         tag = 'star_exp',
                         {
                             tag = 'seq_exp',
-                            { tag = 'fragment', ','},
+                            { tag = 'literal', ','},
                             { tag = 'syn_sym', 'value'}
                         }
                     }
                 }
             },
-            { tag = 'fragment', ']'},
+            { tag = 'literal', ']'},
         }
     },
     {
@@ -87,7 +87,7 @@ return {
         { tag = 'syn_sym', 'object' },
         {
             tag = 'seq_exp',
-            { tag = 'fragment', '{'},
+            { tag = 'literal', '{'},
             {
                 tag = 'opt_exp',
                 {
@@ -97,13 +97,13 @@ return {
                         tag = 'star_exp',
                         {
                             tag = 'seq_exp',
-                            { tag = 'fragment', ','},
+                            { tag = 'literal', ','},
                             { tag = 'syn_sym', 'pair'}
                         }
                     }
                 }
             },
-            { tag = 'fragment', '}'},
+            { tag = 'literal', '}'},
         }
     },
     {
@@ -112,7 +112,7 @@ return {
         {
             tag = 'seq_exp',
             { tag = 'syn_sym', 'string' },
-            { tag = 'fragment', ':' },
+            { tag = 'literal', ':' },
             { tag = 'syn_sym', 'value' }
         }
     }
