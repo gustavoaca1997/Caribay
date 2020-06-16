@@ -414,6 +414,94 @@ context("Parser", function ( )
             assert.are.same(expected, output)
         end)
 
+        test("fragment annotation", function()
+            local input = [[
+                NUMBER <- INT / HEX / FLOAT
+                fragment INT <- %d+
+                fragment FLOAT <- %d+ '.' %d+
+                fragment HEX <- '0x' [0-9a-f]+
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'lex_sym', 'NUMBER' },
+                    {
+                        tag = 'ord_exp',
+                        { tag = 'lex_sym', 'INT' },
+                        { tag = 'lex_sym', 'HEX' },
+                        { tag = 'lex_sym', 'FLOAT' },
+                    }
+                },
+                {
+                    tag = 'rule',
+                    fragment = 'true',
+                    { tag = 'lex_sym', 'INT' },
+                    {
+                        tag = 'rep_exp',
+                        { tag = 'class', '%d' }
+                    }
+                },
+                {
+                    tag = 'rule',
+                    fragment = 'true',
+                    { tag = 'lex_sym', 'FLOAT' },
+                    {
+                        tag = 'seq_exp',
+                        {
+                            tag = 'rep_exp',
+                            { tag = 'class', '%d' },
+                        },
+                        { tag = 'literal', '.' },
+                        {
+                            tag = 'rep_exp',
+                            { tag = 'class', '%d' },
+                        },
+                    }
+                },
+                {
+                    tag = 'rule',
+                    fragment = 'true',
+                    { tag = 'lex_sym', 'HEX' },
+                    {
+                        tag = 'seq_exp',
+                        { tag = 'literal', '0x' },
+                        {
+                            tag = 'rep_exp',
+                            { tag = 'class', '[0-9a-f]' },
+                        }
+                    }
+                }
+            }
+            assert.are.same(expected, parser.match(input))
+        end)
+
+        test("syntactic symbol with 'fragment' as preffix", function()
+            local input = [[
+                s <- fragment_moon*
+                fragment_moon <- "(|"
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 's' },
+                    {
+                        tag = 'star_exp',
+                        { tag = 'syn_sym', 'fragment_moon' }
+                    },
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 'fragment_moon' },
+                    {
+                        tag = 'literal',
+                        captured = 'true',
+                        '(|'
+                    }
+                }
+            }
+            assert.are.same(expected, parser.match(input))
+        end)
+
         test("keyword annotation", function()
             local input = [[
                 type <- "number" / "string" / VECTOR
@@ -432,6 +520,47 @@ context("Parser", function ( )
                 },
                 {
                     tag = 'rule',
+                    keyword = 'true',
+                    { tag = 'lex_sym', 'VECTOR' },
+                    {
+                        tag = 'seq_exp',
+                        { tag = 'literal', captured = 'true', 'vector' },
+                        {
+                            tag = 'opt_exp',
+                            {
+                                tag = 'seq_exp',
+                                { tag = 'class', '[1-9]' },
+                                {
+                                    tag = 'star_exp',
+                                    { tag = 'class', '[0-9]' },
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            assert.are.same(expected, parser.match(input))
+        end)
+
+        test("keyword and fragment annotation", function()
+            local input = [[
+                type <- "number" / "string" / VECTOR
+                fragment @VECTOR <- "vector" ([1-9][0-9]*)?
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 'type' },
+                    {
+                        tag = 'ord_exp',
+                        { tag = 'literal', captured = 'true', 'number' },
+                        { tag = 'literal', captured = 'true', 'string' },
+                        { tag = 'lex_sym', 'VECTOR' },
+                    }
+                },
+                {
+                    tag = 'rule',
+                    fragment = 'true',
                     keyword = 'true',
                     { tag = 'lex_sym', 'VECTOR' },
                     {
@@ -693,6 +822,22 @@ context("Parser", function ( )
                 a "break"
             ]]
             assert.contains_error("Arrow expected", parser.match, input)
+        end)
+
+        test("'Lexical identifier expected' on bad written fragment annotation I", function()
+            local input = [[
+                type <- "number" / "string" / VECTOR
+                fragment vector <- "vector" ([1-9][0-9]*)?
+            ]]
+            assert.contains_error("Lexical identifier expected", parser.match, input)
+        end)
+
+        test("'Lexical identifier expected' on bad written fragment annotation II", function()
+            local input = [[
+                type <- "number" / "string" / VECTOR
+                fragment @vector <- "vector" ([1-9][0-9]*)?
+            ]]
+            assert.contains_error("Lexical identifier expected", parser.match, input)
         end)
 
         test("'Valid expression expected' on bad written rule", function()
