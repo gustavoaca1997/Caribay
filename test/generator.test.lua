@@ -16,7 +16,16 @@ context("Generator", function()
         generator = require"src.generator"
     end)
 
-    pending("throws", function()
+    context("throws", function()
+        test("'Not defined' I", function()
+            local src = [[
+                s <- skip "a" (star / '+')
+            ]]
+            local fn = function()
+                generator.gen(src)
+            end
+            assert.has_error(fn, "rule 'star' undefined in given grammar")
+        end)
     end)
 
     context("generates a parser that report when", function()
