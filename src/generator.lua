@@ -2,6 +2,7 @@ local re = require"relabel"
 local lp = require"lpeglabel"
 local parser = require"parser"
 
+lp.locale(lp) -- adds locale entries into 'lpeglabel' table
 ----------------------------------------------------------------------------
 ----------------------------------------------------------------------------
 
@@ -12,7 +13,7 @@ local M = {}
 local generator = {}
 
 -- Grammar to be compiled with `lp.P`
-local grammar = {}
+local grammar = {}  -- stateful
 
 ----------------------------------------------------------------------------
 ----------------------------------------------------------------------------
@@ -25,7 +26,7 @@ local function get_syms (ast)
     local syms = {}
     for _, rule in ipairs(ast) do
         local sym = rule[1]
-        local type = sym.tag == 'syn_sym' and 'sym' or 'lex'
+        local type = sym.tag == 'syn_sym' and 'syn' or 'lex'
         local is_fragment = rule.fragment and true or false     -- rule.fragment is "true" or nil
         local is_keyword = rule.keyword and true or false       -- rule.keyword is "true" or nil
 
@@ -55,12 +56,35 @@ local function to_lpeg(node, sym)
 end
 
 local function from_tag(tag)
+    --[[
+        To add the field 'tag' with the name or type
+        of the node.
+    ]]
     return lp.Cg(lp.P('') / tag, 'tag')
+end
+
+local function gen_skip()
+    --[[
+        Generate a `SKIP` rule if it is not defined yet
+        by user.
+    ]]
+    if not grammar['SKIP'] then
+        grammar['SKIP'] = lp.space^0
+    end
+end
+
+local function is_lex(sym)
+    return sym.type == 'lex'
+end
+
+local function is_syn(sym)
+    return not is_lex(sym)
 end
 
 ----------------------------------------------------------------------------
 ------------------- Generators for each AST tag ----------------------------
 ----------------------------------------------------------------------------
+local SKIP = lp.V'SKIP'
 
 generator['rule'] = function(node) 
     local sym_str = node[1][1]
@@ -73,10 +97,11 @@ end
 
 generator['literal'] = function(node, sym)
     local literal = node[1]
-    if sym.type == 'lex' or not node.captured then
-        return lp.P(literal)
+    local skip = is_syn(sym.type) and SKIP or lp.P('')
+    if is_lex(sym.type) or not node.captured then
+        return lp.P(literal) * skip
     else
-        return lp.Ct( from_tag('token') *  lp.C(literal) )
+        return lp.Ct( from_tag('token') * lp.C(literal) ) * skip
     end
 end
 
@@ -93,10 +118,14 @@ end
 
 M.gen = function (input)
     local ast = parser.match(input)
+    grammar = {}
     get_syms(ast)
+
     for _, rule in ipairs(ast) do
         to_lpeg(rule)
     end
+
+    gen_skip()
     return lp.P(grammar)
 end
 
