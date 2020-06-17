@@ -65,11 +65,11 @@ end
 
 local function gen_skip()
     --[[
-        Generate a `SKIP` rule if it is not defined yet
+        Generate a `skip` rule if it is not defined yet
         by user.
     ]]
-    if not grammar['SKIP'] then
-        grammar['SKIP'] = lp.space^0
+    if not grammar['skip'] then
+        grammar['skip'] = lp.space^0
     end
 end
 
@@ -84,7 +84,7 @@ end
 ----------------------------------------------------------------------------
 ------------------- Generators for each AST tag ----------------------------
 ----------------------------------------------------------------------------
-local SKIP = lp.V'SKIP'
+local skip_var = lp.V'skip'
 
 generator['rule'] = function(node) 
     local sym_str = node[1][1]
@@ -93,16 +93,6 @@ generator['rule'] = function(node)
     local rhs_lpeg = to_lpeg(rhs, sym)
 
     grammar[sym_str] = lp.Ct( from_tag(sym_str) * rhs_lpeg )
-end
-
-generator['literal'] = function(node, sym)
-    local literal = node[1]
-    local skip = is_syn(sym.type) and SKIP or lp.P('')
-    if is_lex(sym.type) or not node.captured then
-        return lp.P(literal) * skip
-    else
-        return lp.Ct( from_tag('token') * lp.C(literal) ) * skip
-    end
 end
 
 generator['ord_exp'] = function(node, sym)
@@ -120,6 +110,28 @@ generator['seq_exp'] = function(node, sym)
         ret = ret * to_lpeg(exp, sym)
     end
     return ret
+end
+
+generator['literal'] = function(node, sym)
+    local literal = node[1]
+    local skip_var = is_syn(sym.type) and skip_var or lp.P('')
+    if is_lex(sym.type) or not node.captured then
+        return lp.P(literal) * skip_var
+    else
+        return lp.Ct( from_tag('token') * lp.C(literal) ) * skip_var
+    end
+end
+
+generator['lex_sym'] = function(node, sym)
+    -- TODO: Validate fragments are used only on lexical rules
+    local lex_sym = node[1]
+    return lp.V(lex_sym)
+end
+
+generator['syn_sym'] = function(node, sym)
+    -- TODO: Validate syntactic symbols are not used on lexical rules.
+    local syn_sym = node[1]
+    return lp.V(syn_sym)
 end
 
 ----------------------------------------------------------------------------

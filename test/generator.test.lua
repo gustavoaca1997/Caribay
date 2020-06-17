@@ -107,7 +107,27 @@ context("Generator", function()
                 expected[1][1] = 'c'
                 assert.are.same(expected, parser:match('&c'))
                 assert.are.same(expected, parser:match('&   c  '))
+            end)
 
+            test("usage of skip symbol", function()
+                local src = [[
+                    s <- skip ("a" '!' / '{' "b" '}' / '&' "c")
+                ]]
+                local parser = generator.gen(src)
+                local expected = {
+                    tag = 's',
+                    { tag = 'token', 'a' }
+                }
+                assert.are.same(expected, parser:match(' a!'))
+                assert.are.same(expected, parser:match('     a  !'))
+
+                expected[1][1] = 'b'
+                assert.are.same(expected, parser:match(' { b }'))
+                assert.are.same(expected, parser:match('    {   b }'))
+
+                expected[1][1] = 'c'
+                assert.are.same(expected, parser:match(' &c'))
+                assert.are.same(expected, parser:match('   &   c  '))
             end)
         end)
     end)
