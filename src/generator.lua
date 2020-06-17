@@ -76,6 +76,10 @@ local function gen_skip()
     if not M.grammar['skip'] then
         M.grammar['skip'] = lp.space^0
     end
+
+    -- Add initial skip to initial symbol
+    local init_sym = M.grammar[1]
+    M.grammar[init_sym] = lp.V'skip' * M.grammar[init_sym]
 end
 
 local function is_lex(sym)
@@ -97,6 +101,9 @@ generator['rule'] = function(node)
     local rhs = node[2]
     local rhs_lpeg = to_lpeg(rhs, sym)
 
+    -- If it's a lexical rule, capture all RHS.
+    rhs_lpeg = is_lex(sym) and lp.C(rhs_lpeg) or rhs_lpeg
+
     M.grammar[sym_str] = lp.Ct( from_tag(sym_str) * rhs_lpeg )
 end
 
@@ -117,10 +124,15 @@ generator['seq_exp'] = function(node, sym)
     return ret
 end
 
+generator['rep_exp'] = function(node, sym)
+    local exp_lpeg = to_lpeg(node[1], sym)
+    return exp_lpeg^1
+end
+
 generator['literal'] = function(node, sym)
     local literal = node[1]
-    local skip_var = is_syn(sym.type) and skip_var or lp.P('')
-    if is_lex(sym.type) or not node.captured then
+    local skip_var = is_syn(sym) and skip_var or lp.P('')
+    if is_lex(sym) or not node.captured then
         return lp.P(literal) * skip_var
     else
         return lp.Ct( from_tag('token') * lp.C(literal) ) * skip_var
@@ -130,7 +142,8 @@ end
 generator['lex_sym'] = function(node, sym)
     -- TODO: Validate fragments are used only on lexical rules
     local lex_sym = node[1]
-    return lp.V(lex_sym)
+    local skip_var = is_syn(sym) and skip_var or lp.P('')
+    return lp.V(lex_sym) * skip_var
 end
 
 generator['syn_sym'] = function(node, sym)
