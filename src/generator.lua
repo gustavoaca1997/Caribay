@@ -105,6 +105,15 @@ generator['literal'] = function(node, sym)
     end
 end
 
+generator['ord_exp'] = function(node, sym)
+    local ret = to_lpeg(node[1], sym)
+    for i = 2, #node do
+        local exp = node[i]
+        ret = ret + to_lpeg(exp, sym)
+    end
+    return ret
+end
+
 generator['seq_exp'] = function(node, sym)
     local ret = lp.P('')
     for _, exp in ipairs(node) do
@@ -126,7 +135,7 @@ M.gen = function (input)
     end
 
     gen_skip()
-    return lp.P(grammar)
+    return lp.P(grammar) * -1
 end
 
 return M

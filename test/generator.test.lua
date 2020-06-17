@@ -26,7 +26,7 @@ context("Generator", function()
     end)
 
     context("generates a parser from a grammar with", function()
-        context("a trivial rule with", function()
+        context("a rule with", function()
             test("a captured literal", function()
                 local src = 's <- "a"'
                 local expected = {
@@ -66,19 +66,48 @@ context("Generator", function()
                     { tag = 'token', '}' },
                 }
                 assert_output(src, '{x}', expected)
+                assert_output(src, '{x }', expected)
+                assert_output(src, '{   x } ', expected)
             end)
 
-            test("a not captured literal between two captured literals II", function()
+            test("an ordered choice of literals", function()
                 local src = [[
-                    s <- "{" 'x' "}"
+                    s <- "a" / "b" / "c"
                 ]]
-
+                local parser = generator.gen(src)
                 local expected = {
                     tag = 's',
-                    { tag = 'token', '{' },
-                    { tag = 'token', '}' },
+                    { tag = 'token', 'a' }
                 }
-                assert_output(src, '{   x } ', expected)
+                assert.are.same(expected, parser:match'a')
+
+                expected[1][1] = 'b'
+                assert.are.same(expected, parser:match'b')
+
+                expected[1][1] = 'c'
+                assert.are.same(expected, parser:match'c')
+            end)
+
+            test("sequences as ordered choices", function()
+                local src = [[
+                    s <- "a" '!' / '{' "b" '}' / '&' "c"
+                ]]
+                local parser = generator.gen(src)
+                local expected = {
+                    tag = 's',
+                    { tag = 'token', 'a' }
+                }
+                assert.are.same(expected, parser:match('a!'))
+                assert.are.same(expected, parser:match('a  !'))
+
+                expected[1][1] = 'b'
+                assert.are.same(expected, parser:match('{ b }'))
+                assert.are.same(expected, parser:match('{   b }'))
+
+                expected[1][1] = 'c'
+                assert.are.same(expected, parser:match('&c'))
+                assert.are.same(expected, parser:match('&   c  '))
+
             end)
         end)
     end)
