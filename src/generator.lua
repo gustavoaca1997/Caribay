@@ -36,7 +36,7 @@ local function get_syms (ast)
 
         -- Save first symbol as first rule
         -- TODO: Check it is not a fragment
-        if #M.grammar == 0 then
+        if #M.grammar == 0 and not is_fragment then
             M.grammar[1] = sym[1]
         end
 
@@ -115,38 +115,6 @@ generator['rule'] = function(node)
     end
 end
 
-generator['ord_exp'] = function(node, sym)
-    local ret = to_lpeg(node[1], sym)
-    for i = 2, #node do
-        local exp = node[i]
-        ret = ret + to_lpeg(exp, sym)
-    end
-    return ret
-end
-
-generator['seq_exp'] = function(node, sym)
-    local ret = lp.P('')
-    for _, exp in ipairs(node) do
-        ret = ret * to_lpeg(exp, sym)
-    end
-    return ret
-end
-
-generator['rep_exp'] = function(node, sym)
-    local exp_lpeg = to_lpeg(node[1], sym)
-    return exp_lpeg^1
-end
-
-generator['literal'] = function(node, sym)
-    local literal = node[1]
-    local skip_var = is_syn(sym) and skip_var or lp.P('')
-    if is_lex(sym) or not node.captured then
-        return lp.P(literal) * skip_var
-    else
-        return lp.Ct( from_tag('token') * lp.C(literal) ) * skip_var
-    end
-end
-
 generator['lex_sym'] = function(node, sym)
     local lex = node[1]
     local lex_sym = M.syms[lex]
@@ -170,6 +138,49 @@ generator['syn_sym'] = function(node, sym)
     else
         return lp.V(syn)
     end
+end
+
+generator['ord_exp'] = function(node, sym)
+    local ret = to_lpeg(node[1], sym)
+    for i = 2, #node do
+        local exp = node[i]
+        ret = ret + to_lpeg(exp, sym)
+    end
+    return ret
+end
+
+generator['seq_exp'] = function(node, sym)
+    local ret = lp.P('')
+    for _, exp in ipairs(node) do
+        ret = ret * to_lpeg(exp, sym)
+    end
+    return ret
+end
+
+generator['rep_exp'] = function(node, sym)
+    local exp_lpeg = to_lpeg(node[1], sym)
+    return exp_lpeg^1
+end
+
+generator['not_exp'] = function(node, sym)
+    local exp_lpeg = to_lpeg(node[1], sym)
+    return -exp_lpeg
+end
+
+generator['literal'] = function(node, sym)
+    local literal = node[1]
+    local skip_var = is_syn(sym) and skip_var or lp.P('')
+    if is_lex(sym) or not node.captured then
+        return lp.P(literal) * skip_var
+    else
+        return lp.Ct( from_tag('token') * lp.C(literal) ) * skip_var
+    end
+end
+
+generator['class'] = function(node, sym)
+    local chr_class = node[1]
+    local lpeg_class = re.compile(chr_class)
+    return lpeg_class
 end
 
 ----------------------------------------------------------------------------

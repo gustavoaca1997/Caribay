@@ -222,13 +222,34 @@ context("Generator", function()
             assert.is.falsy(parser:match('GustavoC astellanos'))
         end)
 
-        pending("some fragments", function()
+        test("some fragments", function()
             local src = [[
                 list <- NUMBER+
                 NUMBER <- INT / FLOAT
-                fragment INT <- %d+
+                fragment INT <- %d+ !'.'
                 fragment FLOAT <- %d+ '.' %d+
             ]]
+            local parser = generator.gen(src)
+
+            local expected = {
+                tag = 'list',
+                {
+                    tag = 'NUMBER',
+                    '123'
+                },{
+                    tag = 'NUMBER',
+                    '123123123.3'
+                },{
+                    tag = 'NUMBER',
+                    '12'
+                },{
+                    tag = 'NUMBER',
+                    '1.23'
+                },
+            }
+            assert.are.same(expected, parser:match("123 123123123.3 12 1.23"))
+            assert.are.same(expected, parser:match(" 123   123123123.3   12  1.23   "))
+            assert.is.falsy(parser:match("123 12.3121.23"))
         end)
 
         test("syntactic repetition of bits", function()
@@ -254,9 +275,9 @@ context("Generator", function()
 
         test("lexical repetition of bits", function()
             local src = [[
+                fragment BIT <- '0' / '1'
                 rand_bits <- BITS
                 BITS <- BIT+
-                fragment BIT <- '0' / '1'
             ]]
             local parser = generator.gen(src)
 
