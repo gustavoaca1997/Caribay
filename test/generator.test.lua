@@ -262,7 +262,7 @@ context("Generator", function()
     end)
 
     context("throws", function()
-        test("'Not defined' I", function()
+        test("'Not defined'", function()
             local src = [[
                 s <- skip "a" (star / '+')
             ]]
@@ -270,6 +270,43 @@ context("Generator", function()
                 generator.gen(src)
             end
             assert.has_error(fn, "rule 'star' undefined in given grammar")
+        end)
+
+        test("'Trying to use a fragment in a syntactic rule'", function()
+            local src = [[
+                s <- x x
+                fragment LPAR <- '('
+                fragment RPAR <- ')'
+                x <- LPAR "x" RPAR
+            ]]
+            local fn = function()
+                generator.gen(src)
+            end
+            assert.has_error(fn, "Rule 4: Trying to use a fragment in a syntactic rule")
+        end)
+
+        test("'Trying to use a not fragment lexical element in a lexical rule'", function()
+            local src = [[
+                s <- X X
+                X <- LPAR 'x' RPAR
+                LPAR <- '('
+                RPAR <- ')'
+            ]]
+            local fn = function()
+                generator.gen(src)
+            end
+            assert.has_error(fn, "Rule 2: Trying to use a not fragment lexical element in a lexical rule")
+        end)
+
+        test("'Trying to use a syntactic element in a lexical rule'", function ( )
+            local src = [[
+                S <- s
+                s <- 'a' / 'b'
+            ]]
+            local fn = function()
+                generator.gen(src)
+            end
+            assert.has_error(fn, "Rule 1: Trying to use a syntactic element in a lexical rule")
         end)
     end)
 end)

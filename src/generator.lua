@@ -35,6 +35,7 @@ local function get_syms (ast)
         local is_keyword = rule.keyword and true or false       -- rule.keyword is "true" or nil
 
         -- Save first symbol as first rule
+        -- TODO: Check it is not a fragment
         if #M.grammar == 0 then
             M.grammar[1] = sym[1]
         end
@@ -82,6 +83,10 @@ local function gen_skip()
     M.grammar[init_sym] = lp.V'skip' * M.grammar[init_sym]
 end
 
+local function throw_error(err, sym)
+    error('Rule ' .. sym.rule_no .. ': ' .. err)
+end
+
 local function is_lex(sym)
     return sym.type == 'lex'
 end
@@ -96,8 +101,8 @@ end
 local skip_var = lp.V'skip'
 
 generator['rule'] = function(node) 
-    local sym_str = node[1][1]
-    local sym = M.syms[sym_str]
+    local sym_str = node[1][1]  -- Name of the symbol
+    local sym = M.syms[sym_str] -- Symbol 'object'
     local rhs = node[2]
     local rhs_lpeg = to_lpeg(rhs, sym)
 
@@ -140,16 +145,28 @@ generator['literal'] = function(node, sym)
 end
 
 generator['lex_sym'] = function(node, sym)
-    -- TODO: Validate fragments are used only on lexical rules
-    local lex_sym = node[1]
-    local skip_var = is_syn(sym) and skip_var or lp.P('')
-    return lp.V(lex_sym) * skip_var
+    local lex = node[1]
+    local lex_sym = M.syms[lex]
+
+    if is_lex(sym) and not lex_sym.is_fragment then
+        throw_error('Trying to use a not fragment lexical element in a lexical rule', sym)
+    elseif is_syn(sym) and lex_sym.is_fragment then
+        throw_error('Trying to use a fragment in a syntactic rule', sym)
+    else
+        local skip_var = is_syn(sym) and skip_var or lp.P('')
+        return lp.V(lex) * skip_var
+    end
+
 end
 
 generator['syn_sym'] = function(node, sym)
-    -- TODO: Validate syntactic symbols are not used on lexical rules.
-    local syn_sym = node[1]
-    return lp.V(syn_sym)
+    local syn = node[1]
+    local syn_sym = M.syms[syn]
+    if is_lex(sym) then
+        throw_error('Trying to use a syntactic element in a lexical rule', sym)
+    else
+        return lp.V(syn)
+    end
 end
 
 ----------------------------------------------------------------------------
