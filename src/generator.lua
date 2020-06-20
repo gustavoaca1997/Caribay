@@ -106,10 +106,13 @@ generator['rule'] = function(node)
     local rhs = node[2]
     local rhs_lpeg = to_lpeg(rhs, sym)
 
-    -- If it's a lexical rule, capture all RHS.
-    rhs_lpeg = is_lex(sym) and lp.C(rhs_lpeg) or rhs_lpeg
-
-    M.grammar[sym_str] = lp.Ct( from_tag(sym_str) * rhs_lpeg )
+    if sym.is_fragment then
+        M.grammar[sym_str] = rhs_lpeg
+    else
+        -- If it's a lexical rule, capture all RHS.
+        rhs_lpeg = is_lex(sym) and lp.C(rhs_lpeg) or rhs_lpeg
+        M.grammar[sym_str] = lp.Ct( from_tag(sym_str) * rhs_lpeg )
+    end
 end
 
 generator['ord_exp'] = function(node, sym)

@@ -222,7 +222,16 @@ context("Generator", function()
             assert.is.falsy(parser:match('GustavoC astellanos'))
         end)
 
-        test("syntactic sequence of bits", function()
+        pending("some fragments", function()
+            local src = [[
+                list <- NUMBER+
+                NUMBER <- INT / FLOAT
+                fragment INT <- %d+
+                fragment FLOAT <- %d+ '.' %d+
+            ]]
+        end)
+
+        test("syntactic repetition of bits", function()
             local src = [[
                 rand_bits <- BIT+
                 BIT <- '0' / '1'
@@ -243,7 +252,7 @@ context("Generator", function()
             assert.is.falsy(parser:match(' 00 1 10 1 00 1b 0'))
         end)
 
-        pending("lexical sequence of bits", function()
+        test("lexical repetition of bits", function()
             local src = [[
                 rand_bits <- BITS
                 BITS <- BIT+
@@ -256,9 +265,12 @@ context("Generator", function()
                 { tag = 'BITS', '00101'}
             }
             assert.are.same(expected, parser:match('00101'))
-            assert.are.same(expected, parser:match('  00 1         0 1    '))
-            assert.are.same(expected, parser:match(' 0   0 10         1'))
+            assert.are.same(expected, parser:match('   00101 '))
+            assert.is.falsy(parser:match('00 101'))
+            assert.is.falsy(parser:match('  00 1         0 1    '))
+            assert.is.falsy(parser:match(' 0   0 10         1'))
         end)
+
     end)
 
     context("throws", function()
