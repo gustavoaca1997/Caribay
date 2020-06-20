@@ -6,9 +6,16 @@ context("Generator", function()
         generator = require"src.generator"
     end)
 
-    pending("generates a parser that report when", function()
-        pending("lexical sequence tries to match syntactic sequence", function()
-
+    context("generates a parser that report when", function()
+        test("lexical sequence tries to match syntactic sequence", function()
+            local src = [[
+                S <- '(' "b" ')'
+            ]]
+            local parser = generator.gen(src)
+            assert.is.truthy(parser:match('(b)'))
+            assert.is.truthy(parser:match('  (b)'))
+            assert.is.falsy(parser:match('( b )'))
+            assert.is.falsy(parser:match('(b)  '))
         end)
     end)
 
