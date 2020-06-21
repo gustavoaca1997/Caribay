@@ -45,7 +45,10 @@ return {
         {
             tag = 'seq_exp',
             { tag = 'literal', '"' },
-            { tag = 'class', '[^"]' },
+            {
+                tag = 'star_exp',
+                { tag = 'class', '[^"]' },
+            },
             { tag = 'literal', '"' },
         }
     },
@@ -111,7 +114,7 @@ return {
         { tag = 'syn_sym', 'pair' },
         {
             tag = 'seq_exp',
-            { tag = 'syn_sym', 'string' },
+            { tag = 'syn_sym', 'STRING' },
             { tag = 'literal', ':' },
             { tag = 'syn_sym', 'value' }
         }

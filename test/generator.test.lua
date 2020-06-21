@@ -292,6 +292,42 @@ context("Generator", function()
             assert.is.falsy(parser:match(' 0   0 10         1'))
         end)
 
+        pending("its own skip rule", function()
+
+        end)
+
+        pending("its own ID_START rule", function()
+
+        end)
+
+        pending("its own ID_END rule", function()
+
+        end)
+
+        pending("its own ID_START and ID_END rules", function()
+
+        end)
+
+        pending("more tests with character classes", function()
+
+        end)
+
+        pending("test keyword rules", function()
+
+        end)
+
+    end)
+
+    test("generates a parser from JSON grammar", function()
+        local f = assert(io.open("./test/expected/json/grammar.peg", "r"))
+        local src = f:read("a")
+        local parser = generator.gen(src)
+
+        -- Case 1:
+        local f1 = assert(io.open("./test/expected/json/examples/example1.json"))
+        local input = f1:read("a")
+        local expected = require"test.expected.json.examples.example1"
+        assert.are.same(expected, parser:match(input))
     end)
 
     context("throws", function()

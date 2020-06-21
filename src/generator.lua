@@ -26,6 +26,16 @@ local function get_syms (ast)
             is_fragment = false,
             is_keyword = false,
         },
+        ID_START = {
+            type = 'lex',
+            is_fragment = true,
+            is_keyword = false,
+        },
+        ID_END = {
+            type = 'lex',
+            is_fragment = true,
+            is_keyword = false,
+        }
     }
 
     for idx, rule in ipairs(ast) do
@@ -69,11 +79,12 @@ local function from_tag(tag)
     return lp.Cg(lp.P('') / tag, 'tag')
 end
 
-local function gen_skip()
+local function gen_auxiliars()
     --[[
-        Generate a `skip` rule if it is not defined yet
-        by user.
+        Generate auxiliar rules if are not defined by the user yet.
     ]]
+
+    -- Generate a 'skip' rule
     if not M.grammar['skip'] then
         M.grammar['skip'] = lp.space^0
     end
@@ -81,6 +92,16 @@ local function gen_skip()
     -- Add initial skip to initial symbol
     local init_sym = M.grammar[1]
     M.grammar[init_sym] = lp.V'skip' * M.grammar[init_sym]
+
+    -- Generate an 'ID_START' rule
+    if not M.grammar['ID_START'] then
+        M.grammar['ID_START'] = re.compile('[a-zA-Z]+')
+    end
+
+    -- Generate an 'ID_END' rule
+    if not M.grammar['ID_END'] then
+        M.grammar['ID_END'] = re.compile('[a-zA-Z0-9_]+')
+    end
 end
 
 local function throw_error(err, sym)
@@ -95,16 +116,30 @@ local function is_syn(sym)
     return not is_lex(sym)
 end
 
+local function to_keyword(pattern)
+    return pattern * (-lp.V'ID_END')
+end
+
+local skip_var = lp.V'skip'
+
+local function add_skip(pattern, sym)
+    local skip_var = is_syn(sym) and skip_var or lp.P('')
+    return pattern * skip_var
+end
+
 ----------------------------------------------------------------------------
 ------------------- Generators for each AST tag ----------------------------
 ----------------------------------------------------------------------------
-local skip_var = lp.V'skip'
 
 generator['rule'] = function(node) 
     local sym_str = node[1][1]  -- Name of the symbol
     local sym = M.syms[sym_str] -- Symbol 'object'
     local rhs = node[2]
     local rhs_lpeg = to_lpeg(rhs, sym)
+
+    if sym.is_keyword then
+        rhs_lpeg = to_keyword(rhs_lpeg)
+    end
 
     if sym.is_fragment then
         M.grammar[sym_str] = rhs_lpeg
@@ -125,7 +160,8 @@ generator['lex_sym'] = function(node, sym)
         throw_error('Trying to use a fragment in a syntactic rule', sym)
     else
         local skip_var = is_syn(sym) and skip_var or lp.P('')
-        return lp.V(lex) * skip_var
+
+        return add_skip(lp.V(lex), sym)
     end
 
 end
@@ -157,9 +193,19 @@ generator['seq_exp'] = function(node, sym)
     return ret
 end
 
+generator['star_exp'] = function(node, sym)
+    local exp_lpeg = to_lpeg(node[1], sym)
+    return exp_lpeg^0
+end
+
 generator['rep_exp'] = function(node, sym)
     local exp_lpeg = to_lpeg(node[1], sym)
     return exp_lpeg^1
+end
+
+generator['opt_exp'] = function(node, sym)
+    local exp_lpeg = to_lpeg(node[1], sym)
+    return exp_lpeg^-1
 end
 
 generator['not_exp'] = function(node, sym)
@@ -169,12 +215,17 @@ end
 
 generator['literal'] = function(node, sym)
     local literal = node[1]
-    local skip_var = is_syn(sym) and skip_var or lp.P('')
+
     if is_lex(sym) or not node.captured then
-        return lp.P(literal) * skip_var
+        return add_skip(lp.P(literal), sym)
     else
-        return lp.Ct( from_tag('token') * lp.C(literal) ) * skip_var
+        return add_skip(lp.Ct( from_tag('token') * lp.C(literal) ), sym)
     end
+end
+
+generator['keyword'] = function(node, sym)
+    local literal = node[1]
+    return add_skip(to_keyword(lp.P(literal)), sym)
 end
 
 generator['class'] = function(node, sym)
@@ -194,7 +245,7 @@ M.gen = function (input)
     for _, rule in ipairs(ast) do
         to_lpeg(rule)
     end
-    gen_skip()
+    gen_auxiliars()
 
     return lp.P(M.grammar) * -1
 end

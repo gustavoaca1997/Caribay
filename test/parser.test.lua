@@ -825,6 +825,10 @@ context("Parser", function ( )
             assert.contains_error("Lexical identifier expected", parser.match, input)
         end)
 
+        pending("'Lexical identifier expected' on bad written keyword annotation", function()
+            
+        end)
+
         test("'Valid expression expected' on bad written rule", function()
             local input = [[
                 s <- a b?
