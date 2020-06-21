@@ -231,7 +231,7 @@ end
 generator['class'] = function(node, sym)
     local chr_class = node[1]
     local lpeg_class = re.compile(chr_class)
-    return lpeg_class
+    return is_syn(sym) and lp.C(lpeg_clas) or lpeg_class
 end
 
 ----------------------------------------------------------------------------
