@@ -35,6 +35,11 @@ local function get_syms (ast)
             type = 'lex',
             is_fragment = true,
             is_keyword = false,
+        },
+        ID = {
+            type = 'lex',
+            is_fragment = false,
+            is_keyword = false,
         }
     }
 
@@ -45,13 +50,12 @@ local function get_syms (ast)
         local is_keyword = rule.keyword and true or false       -- rule.keyword is "true" or nil
 
         -- Save first symbol as first rule
-        -- TODO: Check it is not a fragment
         if #M.grammar == 0 and not is_fragment then
             M.grammar[1] = sym[1]
         end
 
         -- Save rule
-        syms[sym[1]] = {
+        syms[sym[1]] = syms[sym[1]] or {
             type = type,
             is_fragment = is_fragment,
             is_keyword = is_keyword,
@@ -102,6 +106,10 @@ local function gen_auxiliars()
     if not M.grammar['ID_END'] then
         M.grammar['ID_END'] = re.compile('[a-zA-Z0-9_]+')
     end
+
+    -- Generate 'ID' rule
+    local capture = lp.C( lp.V'ID_START' * lp.V'ID_END'^-1 )
+    M.grammar['ID'] = lp.Ct( from_tag('ID') * capture )
 end
 
 local function throw_error(err, sym)
@@ -146,7 +154,12 @@ generator['rule'] = function(node)
     else
         -- If it's a lexical rule, capture all RHS.
         rhs_lpeg = is_lex(sym) and lp.C(rhs_lpeg) or rhs_lpeg
-        M.grammar[sym_str] = lp.Ct( from_tag(sym_str) * rhs_lpeg )
+
+        if sym_str ~= 'skip' then
+            M.grammar[sym_str] = lp.Ct( from_tag(sym_str) * rhs_lpeg )
+        else
+            M.grammar[sym_str] = rhs_lpeg
+        end
     end
 end
 
@@ -225,7 +238,11 @@ end
 
 generator['keyword'] = function(node, sym)
     local literal = node[1]
-    return add_skip(to_keyword(lp.P(literal)), sym)
+    local pattern = to_keyword(lp.P(literal))
+    if is_syn(sym) then
+        pattern = lp.Ct( from_tag('token') * lp.C(pattern) )
+    end
+    return add_skip(pattern, sym)
 end
 
 generator['class'] = function(node, sym)

@@ -6,19 +6,6 @@ context("Generator", function()
         generator = require"src.generator"
     end)
 
-    context("generates a parser that report when", function()
-        test("lexical sequence tries to match syntactic sequence", function()
-            local src = [[
-                S <- '(' "b" ')'
-            ]]
-            local parser = generator.gen(src)
-            assert.is.truthy(parser:match('(b)'))
-            assert.is.truthy(parser:match('  (b)'))
-            assert.is.falsy(parser:match('( b )'))
-            assert.is.falsy(parser:match('(b)  '))
-        end)
-    end)
-
     context("generates a parser from a grammar with", function()
         context("a rule with", function()
             test("a captured literal", function()
@@ -312,7 +299,93 @@ context("Generator", function()
 
         end)
 
-        pending("test keyword rules", function()
+        test("default ID rule and a keyword", function()
+            local src = [[
+                s <- (print / assign)+
+                assign <- ID '=' INT
+                INT <- %d+
+                print <- `print` ID
+            ]]
+            local parser = generator.gen(src)
+
+            local input = 'x = 10 print x printx = 20 print printx'
+            local expected = {
+                tag = 's',
+                {
+                    tag = 'assign',
+                    { tag = 'ID', 'x' },
+                    { tag = 'INT', '10' },
+                },
+                {
+                    tag = 'print',
+                    { tag = 'token', 'print' },
+                    { tag = 'ID', 'x' },
+                },
+                {
+                    tag = 'assign',
+                    { tag = 'ID', 'printx' },
+                    { tag = 'INT', '20' },
+                },
+                {
+                    tag = 'print',
+                    { tag = 'token', 'print' },
+                    { tag = 'ID', 'printx' },
+                },
+            }
+            assert.are.same(expected, parser:match(input))
+        end)
+
+        test("user defined ID symbol", function()
+            local src = [[
+                s <- `print` ID
+                ID_END <- [a-zA-Z?]+                
+            ]]
+            local parser = generator.gen(src)
+
+            local input = 'print isNumber?'
+            local expected = {
+                tag = 's',
+                { tag = 'token', 'print' },
+                { tag = 'ID', 'isNumber?' },
+            }
+            assert.are.same(expected, parser:match(input))
+            assert.is.falsy(parser:match("print is_boolean?"))
+        end)
+
+        test("keyword rules", function()
+            local src = [[
+                s <- (init / idx)+
+                init <- VECTOR ID
+                idx <- ID '.' INT
+
+                @VECTOR <- 'vector' [1-9]
+                INT <- %d+
+
+                skip <- (' ' / '\n')*
+            ]]
+            local parser = generator.gen(src)
+
+            local input = [[
+                vector3 vector3D
+                vector3D.2
+            ]]
+            local expected = {
+                tag = 's',
+                {
+                    tag = 'init',
+                    { tag = 'VECTOR', 'vector3' },
+                    { tag = 'ID', 'vector3D' },
+                },
+                {
+                    tag = 'idx',
+                    { tag = 'ID', 'vector3D' },
+                    { tag = 'INT', '2' },
+                },
+            }
+            assert.are.same(expected, parser:match(input))
+        end)
+
+        pending("fragment keyword", function()
 
         end)
 
@@ -376,6 +449,52 @@ context("Generator", function()
                 generator.gen(src)
             end
             assert.has_error(fn, "Rule 1: Trying to use a syntactic element in a lexical rule")
+        end)
+    end)
+
+    context("generates a parser that reports when", function()
+        test("lexical sequence tries to match syntactic sequence", function()
+            local src = [[
+                S <- '(' "b" ')'
+            ]]
+            local parser = generator.gen(src)
+            assert.is.truthy(parser:match('(b)'))
+            assert.is.truthy(parser:match('  (b)'))
+            assert.is.falsy(parser:match('( b )'))
+            assert.is.falsy(parser:match('(b)  '))
+        end)
+
+        test("use regular literal as keyword", function()
+            local src = [[
+                s <- (print / assign)+
+                assign <- ID '=' INT
+                INT <- %d+
+                print <- "print" ID
+            ]]
+            local parser = generator.gen(src)
+
+            local input = 'x = 10 print x printx = 20 print printx'
+            assert.is.falsy(parser:match(input))
+        end)
+
+        test("use regular lex rule as keyword rule", function()
+            local src = [[
+                s <- (init / idx)+
+                init <- VECTOR ID
+                idx <- ID '.' INT
+
+                VECTOR <- 'vector' [1-9]
+                INT <- %d+
+
+                skip <- (' ' / '\n')*
+            ]]
+            local parser = generator.gen(src)
+
+            local input = [[
+                vector3 vector3D
+                vector3D.2
+            ]]
+            assert.is.falsy(parser:match(input))
         end)
     end)
 end)
