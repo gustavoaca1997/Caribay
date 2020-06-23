@@ -825,8 +825,12 @@ context("Parser", function ( )
             assert.contains_error("Lexical identifier expected", parser.match, input)
         end)
 
-        pending("'Lexical identifier expected' on bad written keyword annotation", function()
-            
+        test("'Lexical identifier expected' on bad written keyword annotation", function()
+            local input = [[
+                type <- "number" / "string" / VECTOR
+                @vector <- "vector" ([1-9][0-9]*)?
+            ]]
+            assert.contains_error("Lexical identifier expected", parser.match, input)
         end)
 
         test("'Valid expression expected' on bad written rule", function()
