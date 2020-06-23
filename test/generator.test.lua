@@ -84,6 +84,20 @@ context("Generator", function()
                 assert.are.same(expected, parser:match'c')
             end)
 
+            test("empty token", function()
+                local src = [[
+                    s <- A
+                    fragment A <- 'a' (A / %e) 'b'
+                ]]
+                local parser = generator.gen(src)
+
+                assert.is.truthy(parser:match('aaabbb'))
+                assert.is.truthy(parser:match('aabb   '))
+                assert.is.truthy(parser:match('   ab'))
+                assert.is.truthy(parser:match('   aaaaabbbbb   '))
+                assert.is.falsy(parser:match('   aaaaabbb bb   '))
+            end)
+
             test("sequences as ordered choices", function()
                 local src = [[
                     s <- "a" '!' / '{' "b" '}' / '&' "c"
@@ -105,7 +119,7 @@ context("Generator", function()
                 assert.are.same(expected, parser:match('&   c  '))
             end)
 
-            test("usage of initial automatic skip", function()
+            test("usage of initial automatic SKIP", function()
                 local src = [[
                     s <- "a" '!' / '{' "b" '}' / '&' "c"
                 ]]
@@ -212,14 +226,14 @@ context("Generator", function()
         test("and predicate", function()
             -- Non-context free language {a^n b^n c^n : n >= 1}
             local src = [[
-                S <- &(A 'c') 'a'+ B !.
+                s <- &(A 'c') 'a'+ B
                 fragment A <- 'a' A? 'b'
                 fragment B <- 'b' B? 'c'
             ]]
             local parser = generator.gen(src)
 
             assert.is.truthy(parser:match('aaabbbccc'))
-            assert.is.truthy(parser:match('aaaabbbbcccc'))
+            assert.is.truthy(parser:match('aaaabbbbcccc  '))
             assert.is.truthy(parser:match(' abc'))
             assert.is.truthy(parser:match('  aaabbbccc'))
             assert.is.falsy(parser:match('aaabbbbccc'))
@@ -385,7 +399,7 @@ context("Generator", function()
             assert.are.same(expected, parser:match(input))
         end)
 
-        test("keyword rules and its own skip rule", function()
+        test("keyword rules and its own SKIP rule", function()
             local src = [[
                 s <- (init / idx)+
                 init <- VECTOR ID
@@ -394,7 +408,7 @@ context("Generator", function()
                 @VECTOR <- 'vector' [1-9]
                 INT <- %d+
 
-                skip <- (' ' / '\n')*
+                SKIP <- (' ' / '\n')*
             ]]
             local parser = generator.gen(src)
 
@@ -418,7 +432,7 @@ context("Generator", function()
             assert.are.same(expected, parser:match(input))
         end)
 
-        test("fragment keyword and its own skip rule", function()
+        test("fragment keyword and its own SKIP rule", function()
             local src = [[
                 s <- (init / idx)+
                 init <- TYPE ID
@@ -428,7 +442,7 @@ context("Generator", function()
                 fragment @VECTOR <- 'vector' [1-9]
                 INT <- %d+
 
-                skip <- (' ' / '\n')*
+                SKIP <- (' ' / '\n')*
             ]]
             local parser = generator.gen(src)
 
@@ -482,25 +496,12 @@ context("Generator", function()
     context("throws", function()
         test("'Not defined'", function()
             local src = [[
-                s <- skip "a" (star / '+')
+                s <- SKIP "a" (star / '+')
             ]]
             local fn = function()
                 generator.gen(src)
             end
             assert.has_error(fn, "rule 'star' undefined in given grammar")
-        end)
-
-        test("'Trying to use a fragment in a syntactic rule'", function()
-            local src = [[
-                s <- x x
-                fragment LPAR <- '('
-                fragment RPAR <- ')'
-                x <- LPAR "x" RPAR
-            ]]
-            local fn = function()
-                generator.gen(src)
-            end
-            assert.has_error(fn, "Rule 4: Trying to use a fragment in a syntactic rule")
         end)
 
         test("'Trying to use a not fragment lexical element in a lexical rule'", function()
@@ -562,7 +563,7 @@ context("Generator", function()
                 VECTOR <- 'vector' [1-9]
                 INT <- %d+
 
-                skip <- (' ' / '\n')*
+                SKIP <- (' ' / '\n')*
             ]]
             local parser = generator.gen(src)
 

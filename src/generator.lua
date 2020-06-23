@@ -15,28 +15,49 @@ local generator = {}
 ----------------------------------------------------------------------------
 ----------------------------------------------------------------------------
 
+-- Symbol class
+local Symbol = {}
+
+function Symbol:is_lex()
+    return self.type == 'lex'
+end
+
+function Symbol:is_syn()
+    return self.type == 'syn'
+end
+
+function Symbol:new(obj)
+    obj = obj or {}
+    self.__index = self
+    setmetatable(obj, self)
+    return obj
+end
+
+----------------------------------------------------------------------------
+----------------------------------------------------------------------------
+
 local function get_syms (ast)
     --[[
         From AST, store in the module table the symbols with 
         info about their types and annotations.
     ]]
     local syms = {
-        skip = {
+        SKIP = Symbol:new{
             type = 'syn',
-            is_fragment = false,
+            is_fragment = true,
             is_keyword = false,
         },
-        ID_START = {
+        ID_START = Symbol:new{
             type = 'lex',
             is_fragment = true,
             is_keyword = false,
         },
-        ID_END = {
+        ID_END = Symbol:new{
             type = 'lex',
             is_fragment = true,
             is_keyword = false,
         },
-        ID = {
+        ID = Symbol:new{
             type = 'lex',
             is_fragment = false,
             is_keyword = false,
@@ -55,7 +76,7 @@ local function get_syms (ast)
         end
 
         -- Save rule
-        syms[sym[1]] = syms[sym[1]] or { -- `or` mainly for keeping auxiliar entries intact
+        syms[sym[1]] = syms[sym[1]] or Symbol:new{ -- `or` mainly for keeping auxiliar entries intact
             type = type,
             is_fragment = is_fragment,
             is_keyword = is_keyword,
@@ -88,14 +109,14 @@ local function gen_auxiliars()
         Generate auxiliar rules if are not defined by the user yet.
     ]]
 
-    -- Generate a 'skip' rule
-    if not M.grammar['skip'] then
-        M.grammar['skip'] = lp.space^0
+    -- Generate a 'SKIP' rule
+    if not M.grammar['SKIP'] then
+        M.grammar['SKIP'] = lp.space^0
     end
 
-    -- Add initial skip to initial symbol
+    -- Add initial SKIP to initial symbol
     local init_sym = M.grammar[1]
-    M.grammar[init_sym] = lp.V'skip' * M.grammar[init_sym]
+    M.grammar[init_sym] = lp.V'SKIP' * M.grammar[init_sym]
 
     -- Generate an 'ID_START' rule
     if not M.grammar['ID_START'] then
@@ -116,23 +137,19 @@ local function throw_error(err, sym)
     error('Rule ' .. sym.rule_no .. ': ' .. err)
 end
 
-local function is_lex(sym)
-    return sym.type == 'lex'
-end
-
-local function is_syn(sym)
-    return not is_lex(sym)
-end
-
 local function to_keyword(pattern)
     return pattern * (-lp.V'ID_END')
 end
 
-local skip_var = lp.V'skip'
+local SKIP_var = lp.V'SKIP'
 
-local function add_skip(pattern, sym)
-    local skip_var = is_syn(sym) and skip_var or lp.P('')
-    return pattern * skip_var
+local function add_SKIP(pattern, sym)
+    local SKIP_var = sym:is_syn() and SKIP_var or lp.P('')
+    return pattern * SKIP_var
+end
+
+local function capt_if_syn(pattern, sym)
+    return sym:is_syn() and lp.C(pattern) or pattern
 end
 
 ----------------------------------------------------------------------------
@@ -153,13 +170,8 @@ generator['rule'] = function(node)
         M.grammar[sym_str] = rhs_lpeg
     else
         -- If it's a lexical rule, capture all RHS.
-        rhs_lpeg = is_lex(sym) and lp.C(rhs_lpeg) or rhs_lpeg
-
-        if sym_str ~= 'skip' then
-            M.grammar[sym_str] = lp.Ct( from_tag(sym_str) * rhs_lpeg )
-        else
-            M.grammar[sym_str] = rhs_lpeg
-        end
+        rhs_lpeg = sym:is_lex() and lp.C(rhs_lpeg) or rhs_lpeg
+        M.grammar[sym_str] = lp.Ct( from_tag(sym_str) * rhs_lpeg )
     end
 end
 
@@ -167,14 +179,10 @@ generator['lex_sym'] = function(node, sym)
     local lex = node[1]
     local lex_sym = M.syms[lex]
 
-    if is_lex(sym) and not lex_sym.is_fragment then
+    if sym:is_lex() and not lex_sym.is_fragment then
         throw_error('Trying to use a not fragment lexical element in a lexical rule', sym)
-    elseif is_syn(sym) and lex_sym.is_fragment then
-        throw_error('Trying to use a fragment in a syntactic rule', sym)
     else
-        local skip_var = is_syn(sym) and skip_var or lp.P('')
-
-        return add_skip(lp.V(lex), sym)
+        return add_SKIP(lp.V(lex), sym)
     end
 
 end
@@ -182,7 +190,7 @@ end
 generator['syn_sym'] = function(node, sym)
     local syn = node[1]
     local syn_sym = M.syms[syn]
-    if is_lex(sym) then
+    if sym:is_lex() then
         throw_error('Trying to use a syntactic element in a lexical rule', sym)
     else
         return lp.V(syn)
@@ -234,31 +242,35 @@ end
 generator['literal'] = function(node, sym)
     local literal = node[1]
 
-    if is_lex(sym) or not node.captured then
-        return add_skip(lp.P(literal), sym)
+    if sym:is_lex() or not node.captured then
+        return add_SKIP(lp.P(literal), sym)
     else
-        return add_skip(lp.Ct( from_tag('token') * lp.C(literal) ), sym)
+        return add_SKIP(lp.Ct( from_tag('token') * lp.C(literal) ), sym)
     end
 end
 
 generator['keyword'] = function(node, sym)
     local literal = node[1]
     local pattern = to_keyword(lp.P(literal))
-    if is_syn(sym) then
+    if sym:is_syn() then
         pattern = lp.Ct( from_tag('token') * lp.C(pattern) )
     end
-    return add_skip(pattern, sym)
+    return add_SKIP(pattern, sym)
 end
 
 generator['class'] = function(node, sym)
     local chr_class = node[1]
     local lpeg_class = re.compile(chr_class)
-    return is_syn(sym) and lp.C(lpeg_clas) or lpeg_class
+    return capt_if_syn(lpeg_class, sym)
 end
 
 generator['any'] = function(node, sym)
     local lpeg_class = lp.P(1)
-    return is_syn(sym) and lp.C(lpeg_class) or lpeg_class
+    return capt_if_syn(lpeg_class, sym)
+end
+
+generator['empty'] = function(node, sym)
+    return lp.P('')
 end
 
 ----------------------------------------------------------------------------
