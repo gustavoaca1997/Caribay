@@ -279,24 +279,56 @@ context("Generator", function()
             assert.is.falsy(parser:match(' 0   0 10         1'))
         end)
 
-        pending("its own skip rule", function()
+        test("its own ID_START rule", function()
+            local src = [[
+                s <- `print` ID
+                ID_START <- '_'? [a-zA-Z]+                
+            ]]
+            local parser = generator.gen(src)
 
+            local input = 'print _private_attr'
+            local expected = {
+                tag = 's',
+                { tag = 'token', 'print' },
+                { tag = 'ID', '_private_attr' },
+            }
+            assert.are.same(expected, parser:match(input))
+            assert.is.falsy(parser:match("print 0is_boolean"))
         end)
 
-        pending("its own ID_START rule", function()
+        test("its own ID_END rule", function()
+            local src = [[
+                s <- `print` ID
+                ID_END <- [a-zA-Z?]+                
+            ]]
+            local parser = generator.gen(src)
 
+            local input = 'print isNumber?'
+            local expected = {
+                tag = 's',
+                { tag = 'token', 'print' },
+                { tag = 'ID', 'isNumber?' },
+            }
+            assert.are.same(expected, parser:match(input))
+            assert.is.falsy(parser:match("print is_boolean?"))
         end)
 
-        pending("its own ID_END rule", function()
+        test("its own ID_START and ID_END rules", function()
+            local src = [[
+                s <- `print` ID
+                ID_START <- '_'? [a-zA-Z]+
+                ID_END <- [a-zA-Z?]+                
+            ]]
+            local parser = generator.gen(src)
 
-        end)
-
-        pending("its own ID_START and ID_END rules", function()
-
-        end)
-
-        pending("more tests with character classes", function()
-
+            local input = 'print _isNumber?'
+            local expected = {
+                tag = 's',
+                { tag = 'token', 'print' },
+                { tag = 'ID', '_isNumber?' },
+            }
+            assert.are.same(expected, parser:match(input))
+            assert.is.falsy(parser:match("print _is_boolean?"))
         end)
 
         test("default ID rule and a keyword", function()
@@ -335,24 +367,7 @@ context("Generator", function()
             assert.are.same(expected, parser:match(input))
         end)
 
-        test("user defined ID symbol", function()
-            local src = [[
-                s <- `print` ID
-                ID_END <- [a-zA-Z?]+                
-            ]]
-            local parser = generator.gen(src)
-
-            local input = 'print isNumber?'
-            local expected = {
-                tag = 's',
-                { tag = 'token', 'print' },
-                { tag = 'ID', 'isNumber?' },
-            }
-            assert.are.same(expected, parser:match(input))
-            assert.is.falsy(parser:match("print is_boolean?"))
-        end)
-
-        test("keyword rules", function()
+        test("keyword rules and its own skip rule", function()
             local src = [[
                 s <- (init / idx)+
                 init <- VECTOR ID
@@ -385,8 +400,51 @@ context("Generator", function()
             assert.are.same(expected, parser:match(input))
         end)
 
-        pending("fragment keyword", function()
+        test("fragment keyword and its own skip rule", function()
+            local src = [[
+                s <- (init / idx)+
+                init <- TYPE ID
+                idx <- ID '.' INT
 
+                TYPE <- `map` / VECTOR
+                fragment @VECTOR <- 'vector' [1-9]
+                INT <- %d+
+
+                skip <- (' ' / '\n')*
+            ]]
+            local parser = generator.gen(src)
+
+            local input = [[
+                map map_0
+                map_0.5
+
+                vector3 vector3D
+                vector3D.2
+            ]]
+            local expected = {
+                tag = 's',
+                {
+                    tag = 'init',
+                    { tag = 'TYPE', 'map' },
+                    { tag = 'ID', 'map_0' },
+                },
+                {
+                    tag = 'idx',
+                    { tag = 'ID', 'map_0' },
+                    { tag = 'INT', '5' },
+                },
+                {
+                    tag = 'init',
+                    { tag = 'TYPE', 'vector3' },
+                    { tag = 'ID', 'vector3D' },
+                },
+                {
+                    tag = 'idx',
+                    { tag = 'ID', 'vector3D' },
+                    { tag = 'INT', '2' },
+                },
+            }
+            assert.are.same(expected, parser:match(input))
         end)
 
     end)
