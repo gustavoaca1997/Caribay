@@ -226,6 +226,11 @@ generator['not_exp'] = function(node, sym)
     return -exp_lpeg
 end
 
+generator['and_exp'] = function(node, sym)
+    local exp_lpeg = to_lpeg(node[1], sym)
+    return #exp_lpeg
+end
+
 generator['literal'] = function(node, sym)
     local literal = node[1]
 
@@ -249,6 +254,11 @@ generator['class'] = function(node, sym)
     local chr_class = node[1]
     local lpeg_class = re.compile(chr_class)
     return is_syn(sym) and lp.C(lpeg_clas) or lpeg_class
+end
+
+generator['any'] = function(node, sym)
+    local lpeg_class = lp.P(1)
+    return is_syn(sym) and lp.C(lpeg_class) or lpeg_class
 end
 
 ----------------------------------------------------------------------------

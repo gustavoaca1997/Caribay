@@ -209,6 +209,24 @@ context("Generator", function()
             assert.is.falsy(parser:match('GustavoC astellanos'))
         end)
 
+        test("and predicate", function()
+            -- Non-context free language {a^n b^n c^n : n >= 1}
+            local src = [[
+                S <- &(A 'c') 'a'+ B !.
+                fragment A <- 'a' A? 'b'
+                fragment B <- 'b' B? 'c'
+            ]]
+            local parser = generator.gen(src)
+
+            assert.is.truthy(parser:match('aaabbbccc'))
+            assert.is.truthy(parser:match('aaaabbbbcccc'))
+            assert.is.truthy(parser:match(' abc'))
+            assert.is.truthy(parser:match('  aaabbbccc'))
+            assert.is.falsy(parser:match('aaabbbbccc'))
+            assert.is.falsy(parser:match('aaabbbcc'))
+            assert.is.falsy(parser:match('aa abbbccc'))
+        end)
+
         test("some fragments", function()
             local src = [[
                 list <- NUMBER+
