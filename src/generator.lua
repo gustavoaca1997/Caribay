@@ -55,7 +55,7 @@ local function get_syms (ast)
         end
 
         -- Save rule
-        syms[sym[1]] = syms[sym[1]] or {
+        syms[sym[1]] = syms[sym[1]] or { -- `or` mainly for keeping auxiliar entries intact
             type = type,
             is_fragment = is_fragment,
             is_keyword = is_keyword,

@@ -114,7 +114,7 @@ return {
         { tag = 'syn_sym', 'pair' },
         {
             tag = 'seq_exp',
-            { tag = 'syn_sym', 'STRING' },
+            { tag = 'lex_sym', 'STRING' },
             { tag = 'literal', ':' },
             { tag = 'syn_sym', 'value' }
         }
