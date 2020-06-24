@@ -19,7 +19,7 @@ local peg_grammar = [=[
     name    <- LEX_ID / SYN_ID
 
     ARROW       <- '<-' skip
-    ORD_OP      <- '/' skip
+    ORD_OP      <- '/' %s*
     STAR_OP     <- '*' skip
     REP_OP      <- '+' skip
     OPT_OP      <- '?' skip

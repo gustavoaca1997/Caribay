@@ -4,6 +4,7 @@ assert:register("assertion", "contains_error", assertions.contains_error)
 context("Generator", function()
     setup(function()
         generator = require"src.generator"
+        re = require"relabel"
     end)
 
     context("generates a parser from a grammar with", function()
@@ -408,12 +409,13 @@ context("Generator", function()
                 @VECTOR <- 'vector' [1-9]
                 INT <- %d+
 
-                SKIP <- (' ' / '\n')*
+                SKIP <- (' ' / '\n' / ';')*
             ]]
             local parser = generator.gen(src)
 
             local input = [[
                 vector3 vector3D
+                ;;;;
                 vector3D.2
             ]]
             local expected = {
@@ -442,16 +444,16 @@ context("Generator", function()
                 fragment @VECTOR <- 'vector' [1-9]
                 INT <- %d+
 
-                SKIP <- (' ' / '\n')*
+                SKIP <- (' ' / '\n' / ';')*
             ]]
             local parser = generator.gen(src)
 
             local input = [[
                 map map_0
-                map_0.5
+                map_0.5;
 
                 vector3 vector3D
-                vector3D.2
+                vector3D.2;
             ]]
             local expected = {
                 tag = 's',
@@ -485,12 +487,28 @@ context("Generator", function()
         local f = assert(io.open("./test/expected/json/grammar.peg", "r"))
         local src = f:read("a")
         local parser = generator.gen(src)
+        f:close()
 
-        -- Case 1:
         local f1 = assert(io.open("./test/expected/json/examples/example1.json"))
         local input = f1:read("a")
-        local expected = require"test.expected.json.examples.example1"
+        local expected = require"test.expected.json.examples.output1"
         assert.are.same(expected, parser:match(input))
+        f1:close()
+    end)
+
+    test("generates a parser from Lua grammar", function()
+        local f = assert(io.open("./test/expected/lua/grammar.peg", "r"))
+        local src = f:read("a")
+        local parser = generator.gen(src)
+        f:close()
+
+        -- Case 1:
+        f = assert(io.open("./test/expected/lua/examples/example1.lua", "r"))
+        local input = f:read("a")
+        local expected = require"test.expected.lua.examples.output1"
+        local ast, err, pos = parser:match(input)
+        f:close()
+        assert.are.same(expected, ast)
     end)
 
     context("throws", function()
@@ -563,13 +581,13 @@ context("Generator", function()
                 VECTOR <- 'vector' [1-9]
                 INT <- %d+
 
-                SKIP <- (' ' / '\n')*
+                SKIP <- (' ' / '\n' / ';')*
             ]]
             local parser = generator.gen(src)
 
             local input = [[
-                vector3 vector3D
-                vector3D.2
+                vector3 vector3D;
+                vector3D.2;
             ]]
             assert.is.falsy(parser:match(input))
         end)

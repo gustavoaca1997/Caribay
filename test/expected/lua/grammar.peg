@@ -1,0 +1,64 @@
+chunk       <-  (stat ';'?)* (laststat ';'?)?
+block       <-  chunk
+
+stat        <-  varlist '=' explist /
+                functioncall /
+                `do` block `end` /
+                `while` exp `do` block `end` /
+                `repeat` block `until` exp /
+                `if` exp `then` block (`elseif` exp `then` block)* (`else` block)? `end` /
+                `for` ID '=' exp ',' exp (',' exp)? `do` block `end` /
+                `for` namelist `in` explist `do` block `end` /
+                `function` funcname funcbody /
+                `local` `function` ID funcbody /
+                `local` namelist ('=' explist)?
+
+laststat    <-  `return` explist? / `break`
+
+funcname    <-  ID ('.' ID)* (':' ID)?
+
+varlist     <-  var (',' var)*
+var         <-  ID / prefiexp key_exp / prefiexp dot_exp
+
+key_exp     <- '[' exp ']'
+dot_exp     <- '.' ID
+
+namelist    <- ID (',' ID)*
+
+explist     <-  (exp ',')* exp
+
+exp         <-  conj ('+' conj)*
+conj        <-  comp (`and` comp)*
+comp        <-  conc (COMP_OP conc)*
+conc        <-  arit ('..' arit)*
+arit        <-  term (TERM_OP term)*
+term        <-  factor (FACTOR_OP factor)*
+factor      <-  UNARY_OP? unary
+unary       <-  '^'? atom_exp
+
+atom_exp    <-  `nil` / `false` / `true` / NUMBER / STRING / function /
+                "..." / prefiexp / tableconstructor
+
+prefiexp       <-   ( ID / '(' exp ')' )? prefiexp_aux    
+prefiexp_aux   <-   ( args / ':' ID args / key_exp / dot_exp ) prefiexp_aux / %e
+
+functioncall <- prefiexp args / prefiexp ':' ID args
+args         <- '(' explist? ')' / tableconstructor / STRING
+
+function    <- `function` funcbody
+funcbody    <- '(' parlist? ')' block `end`
+parlist     <- namelist (',' '...')? / '...'
+
+tableconstructor    <-  '{' fieldlist? '}'
+fieldlist   <-  field (fieldsep field)* fieldsep?
+field       <- '[' exp ']' '=' exp / ID '=' exp / exp
+fieldsep    <- ',' / ';'
+
+ID_START    <- [a-zA-Z_]+
+
+STRING      <- '"' [^"]* '"' / "'" [^']* "'"
+NUMBER      <- %d+ ('.' %d+)?
+COMP_OP     <- '<' / '>' / '<=' / '>=' / '~=' / '=='
+TERM_OP     <- '+' / '-'
+FACTOR_OP   <- '*' / '/' / '%'
+UNARY_OP    <- `not` / '#' / '-'
