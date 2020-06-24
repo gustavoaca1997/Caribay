@@ -27,7 +27,7 @@ namelist    <- ID (',' ID)*
 
 explist     <-  (exp ',')* exp
 
-exp         <-  conj ('+' conj)*
+exp         <-  conj (`or` conj)*
 conj        <-  comp (`and` comp)*
 comp        <-  conc (COMP_OP conc)*
 conc        <-  arit ('..' arit)*
