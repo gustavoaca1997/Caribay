@@ -16,8 +16,9 @@ M.contains_error = function(state, arguments)
 end
 
 local function traverse(currExpected, currOutput)
-    if  currExpected.tag ~= currOutput.tag or 
-        #currExpected ~= #currOutput 
+    if  not currOutput or
+        currExpected.tag ~= currOutput.tag or 
+        #currExpected ~= #currOutput
     then
         return false
     else

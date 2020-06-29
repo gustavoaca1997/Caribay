@@ -6,6 +6,7 @@ context("Generator", function()
     setup(function()
         generator = require"src.generator"
         re = require"relabel"
+        lfs = require"lfs"
     end)
 
     context("generates a parser from a grammar with", function()
@@ -544,6 +545,45 @@ context("Generator", function()
             assert.same_ast(expected, parser:match(input))
         end)
 
+        test("user defined `COMMENT`", function()
+            local src = [[
+                s <- NUMBER (',' NUMBER)*
+                fragment COMMENT <- '--' [^%nl]*
+                NUMBER <- %d+
+            ]]
+            local parser = generator.gen(src)
+
+            local input = [[
+                -- a test
+                5, -- a number
+                6, 7, -- this number is not captured 8
+                9
+            ]]
+            local expected = {
+                tag = 's',
+                { tag = 'NUMBER', '5' },
+                { tag = 'NUMBER', '6' },
+                { tag = 'NUMBER', '7' },
+                { tag = 'NUMBER', '9' },
+            }
+            -- local ast, err, pos = parser:match(input)
+            -- if not ast then
+            --     print(err, re.calcline(input, pos))
+            -- end
+            assert.same_ast(expected, parser:match(input))
+        end)
+
+    end)
+
+    pending("generates a parser from expression grammar", function()
+        local src = [[
+            program <-  (cmd / exp)*
+            cmd     <-  ID assign_sign exp
+            exp     <-  term ('+' term)*
+            term    <~  factor ('*' factor)*
+            factor  <~  ID / NUMBER / '(' exp ')'
+            NUMBER  <-  %d+ ('.' %d+)?
+        ]]
     end)
 
     test("generates a parser from JSON grammar", function()
@@ -572,6 +612,17 @@ context("Generator", function()
         local ast, err, pos = parser:match(input)
         f:close()
         assert.same_ast(expected, ast)
+
+        -- Other cases:
+        local folder_name = [[./test/lua5.1-tests/]]
+        for file_name in lfs.dir(folder_name) do
+            f = assert(io.open(folder_name .. file_name, "r"))
+            local input = f:read("a")
+            local ast, err, pos = parser:match(input)
+            if not ast then print(file_name, err, re.calcline(input, pos)) end
+            assert.is.truthy(ast)
+            f:close()
+        end
     end)
 
     context("throws", function()

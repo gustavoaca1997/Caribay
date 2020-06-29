@@ -69,6 +69,7 @@ local function get_syms (ast)
         local type = sym.tag == 'syn_sym' and 'syn' or 'lex'
         local is_fragment = rule.fragment and true or false     -- rule.fragment is "true" or nil
         local is_keyword = rule.keyword and true or false       -- rule.keyword is "true" or nil
+        local is_skippable = rule.skippable and true or false
 
         -- Save first symbol as first rule
         if #M.grammar == 0 and not is_fragment then
@@ -80,6 +81,7 @@ local function get_syms (ast)
             type = type,
             is_fragment = is_fragment,
             is_keyword = is_keyword,
+            is_skippable = is_skippable,
             rule_no = idx,
         }
     end
@@ -111,7 +113,11 @@ local function gen_auxiliars()
 
     -- Generate a 'SKIP' rule
     if not M.grammar['SKIP'] then
-        M.grammar['SKIP'] = lp.space^0
+        if M.grammar['COMMENT'] then
+            M.grammar['SKIP'] = (lp.space + lp.V'COMMENT')^0
+        else
+            M.grammar['SKIP'] = lp.space^0
+        end
     end
 
     -- Add initial SKIP to initial symbol
@@ -152,6 +158,17 @@ local function capt_if_syn(pattern, sym)
     return sym:is_syn() and lp.C(pattern) or pattern
 end
 
+local function parent_node_if_necessary(tag)
+    return function ( captures )
+        if (#captures == 1) then
+            return captures[1]
+        else
+            captures.tag = tag
+            return captures
+        end
+    end
+end
+
 ----------------------------------------------------------------------------
 ------------------- Generators for each AST tag ----------------------------
 ----------------------------------------------------------------------------
@@ -171,7 +188,13 @@ generator['rule'] = function(node)
     else
         -- If it's a lexical rule, capture all RHS.
         rhs_lpeg = sym:is_lex() and lp.C(rhs_lpeg) or rhs_lpeg
-        M.grammar[sym_str] = lp.Ct( from_tag(sym_str) * rhs_lpeg )
+
+        -- If it's skippable, don't capture if it only has one child
+        if sym.is_skippable then
+            M.grammar[sym_str] = lp.Ct( lp.Cg(lp.Cp(), 'pos') * rhs_lpeg ) / parent_node_if_necessary(sym_str)
+        else
+            M.grammar[sym_str] = lp.Ct( from_tag(sym_str) * rhs_lpeg )
+        end
     end
 end
 

@@ -28,19 +28,18 @@ namelist    <- ID (',' ID)*
 explist     <-  (exp ',')* exp
 
 exp         <-  conj (`or` conj)*
-conj        <-  comp (`and` comp)*
-comp        <-  conc (COMP_OP conc)*
-conc        <-  arit ('..' arit)*
-arit        <-  term (TERM_OP term)*
-term        <-  factor (FACTOR_OP factor)*
-factor      <-  UNARY_OP? unary
-unary       <-  '^'? atom_exp
-
-atom_exp    <-  `nil` / `false` / `true` / NUMBER / STRING / function /
+conj        <~  comp (`and` comp)*
+comp        <~  conc (COMP_OP conc)*
+conc        <~  arit ('..' arit)*
+arit        <~  term (TERM_OP term)*
+term        <~  factor (FACTOR_OP factor)*
+factor      <~  UNARY_OP? unary
+unary       <~  "^"? atom_exp
+atom_exp    <~  `nil` / `false` / `true` / NUMBER / STRING / function /
                 "..." / prefiexp / tableconstructor
 
-prefiexp       <-   ( ID / '(' exp ')' )? prefiexp_aux    
-prefiexp_aux   <-   ( args / ':' ID args / key_exp / dot_exp ) prefiexp_aux / %e
+prefiexp       <-   ( ID / '(' exp ')' )? prefiexp_aux?
+prefiexp_aux   <-   ( args / ':' ID args / key_exp / dot_exp ) prefiexp_aux
 
 functioncall <- prefiexp args / prefiexp ':' ID args
 args         <- '(' explist? ')' / tableconstructor / STRING
@@ -62,3 +61,5 @@ COMP_OP     <- '<' / '>' / '<=' / '>=' / '~=' / '=='
 TERM_OP     <- '+' / '-'
 FACTOR_OP   <- '*' / '/' / '%'
 UNARY_OP    <- `not` / '#' / '-'
+
+COMMENT     <- '--' ([^%nl]* / '[[' .* ']]')

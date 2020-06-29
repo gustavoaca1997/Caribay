@@ -5,10 +5,14 @@ local M = {}
 
 local peg_grammar = [=[
     S       <- [%s%nl]* {| rule+ |} !.
-    rule    <- {| {:tag: '' -> 'rule' :} {:fragment: frgmnt_annot -> 'true' :}? {:keyword: kywrd_annot -> 'true' :}? name ARROW^ErrArrow exp^ErrExp (newlines / !. )^ErrRuleEnd |}
+    rule    <- {| {:tag: '' -> 'rule' :} frgmnt? kywrd? name arrow^ErrArrow exp^ErrExp (newlines / !. )^ErrRuleEnd |}
     
+    frgmnt       <- {:fragment: frgmnt_annot -> 'true' :}
     frgmnt_annot <- "fragment" spaces (&(kywrd_annot? LEX_ID))^ErrLexId
-    kywrd_annot  <- "keyword"  spaces (&LEX_ID)^ErrLexId
+
+    kywrd        <- {:keyword: kywrd_annot -> 'true' :}
+    kywrd_annot  <- "keyword" spaces (&LEX_ID)^ErrLexId
+
     SPACE       <- " "
     spaces      <- SPACE+
     skip        <- SPACE*
@@ -18,7 +22,10 @@ local peg_grammar = [=[
     SYN_ID  <- {| {:tag: '' -> 'syn_sym' :}    { [a-z][a-zA-Z0-9_]* } skip |}
     name    <- LEX_ID / SYN_ID
 
+    arrow       <- ARROW / ARROW_SKP 
     ARROW       <- '<-' skip
+    ARROW_SKP   <- {:skippable: '<~' -> 'true' :} skip
+
     ORD_OP      <- '/' %s*
     STAR_OP     <- '*' skip
     REP_OP      <- '+' skip

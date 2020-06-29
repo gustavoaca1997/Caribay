@@ -399,6 +399,48 @@ context("Parser", function ( )
             assert.are.same(expected, output)
         end)
 
+        test("skippable annotation", function()
+            local input = [[
+                exp <- sum
+                sum <~ T ('+' T)*
+                T   <- %d+ 
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 'exp' },
+                    { tag = 'syn_sym', 'sum' },
+                },
+                {
+                    tag = 'rule',
+                    skippable = 'true',
+                    { tag = 'syn_sym', 'sum' },
+                    {
+                        tag = 'seq_exp',
+                        { tag = 'lex_sym', 'T' },
+                        {
+                            tag = 'star_exp',
+                            {
+                                tag = 'seq_exp',
+                                { tag = 'literal', '+' },
+                                { tag = 'lex_sym', 'T' },
+                            }
+                        }
+                    }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'lex_sym', 'T' },
+                    {
+                        tag = 'rep_exp',
+                        { tag = 'class', '%d' },
+                    }
+                }
+            }
+            local output = parser.match(input)
+            assert.are.same(expected, output)
+        end)
+
         test("fragment annotation", function()
             local input = [[
                 NUMBER <- INT / HEX / FLOAT
