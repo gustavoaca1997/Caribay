@@ -469,7 +469,7 @@ context("Generator", function()
                 init <- VECTOR ID
                 idx <- ID '.' INT
 
-                @VECTOR <- 'vector' [1-9]
+                keyword VECTOR <- 'vector' [1-9]
                 INT <- %d+
 
                 SKIP <- (' ' / '\n' / ';')*
@@ -504,7 +504,7 @@ context("Generator", function()
                 idx <- ID '.' INT
 
                 TYPE <- `map` / VECTOR
-                fragment @VECTOR <- 'vector' [1-9]
+                fragment keyword VECTOR <- 'vector' [1-9]
                 INT <- %d+
 
                 SKIP <- (' ' / '\n' / ';')*

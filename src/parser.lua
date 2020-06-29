@@ -5,10 +5,10 @@ local M = {}
 
 local peg_grammar = [=[
     S       <- [%s%nl]* {| rule+ |} !.
-    rule    <- {| {:tag: '' -> 'rule' :} {:fragment: frgmnt_annot -> 'true' :}? {:keyword: AT -> 'true' :}? name ARROW^ErrArrow exp^ErrExp (newlines / !. )^ErrRuleEnd |}
+    rule    <- {| {:tag: '' -> 'rule' :} {:fragment: frgmnt_annot -> 'true' :}? {:keyword: kywrd_annot -> 'true' :}? name ARROW^ErrArrow exp^ErrExp (newlines / !. )^ErrRuleEnd |}
     
-    frgmnt_annot <- "fragment" spaces (&(AT? LEX_ID))^ErrLexId
-    AT          <- "@" (&LEX_ID)^ErrLexId
+    frgmnt_annot <- "fragment" spaces (&(kywrd_annot? LEX_ID))^ErrLexId
+    kywrd_annot  <- "keyword"  spaces (&LEX_ID)^ErrLexId
     SPACE       <- " "
     spaces      <- SPACE+
     skip        <- SPACE*

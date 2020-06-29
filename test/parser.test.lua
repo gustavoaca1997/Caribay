@@ -490,7 +490,7 @@ context("Parser", function ( )
         test("keyword annotation", function()
             local input = [[
                 type <- "number" / "string" / VECTOR
-                @VECTOR <- "vector" ([1-9][0-9]*)?
+                keyword VECTOR <- "vector" ([1-9][0-9]*)?
             ]]
             local expected = {
                 {
@@ -530,7 +530,7 @@ context("Parser", function ( )
         test("keyword and fragment annotation", function()
             local input = [[
                 type <- "number" / "string" / VECTOR
-                fragment @VECTOR <- "vector" ([1-9][0-9]*)?
+                fragment keyword VECTOR <- "vector" ([1-9][0-9]*)?
             ]]
             local expected = {
                 {
@@ -820,7 +820,7 @@ context("Parser", function ( )
         test("'Lexical identifier expected' on bad written fragment annotation II", function()
             local input = [[
                 type <- "number" / "string" / VECTOR
-                fragment @vector <- "vector" ([1-9][0-9]*)?
+                fragment keyword vector <- "vector" ([1-9][0-9]*)?
             ]]
             assert.contains_error("Lexical identifier expected", parser.match, input)
         end)
@@ -828,7 +828,7 @@ context("Parser", function ( )
         test("'Lexical identifier expected' on bad written keyword annotation", function()
             local input = [[
                 type <- "number" / "string" / VECTOR
-                @vector <- "vector" ([1-9][0-9]*)?
+                keyword vector <- "vector" ([1-9][0-9]*)?
             ]]
             assert.contains_error("Lexical identifier expected", parser.match, input)
         end)
@@ -919,7 +919,7 @@ context("Parser", function ( )
 
         test("'Valid choice expected' on bad written ordered choice II", function()
             local input = [[
-                s <- a b / d /
+                s <- a b / d / )
                 a <- 'a'
                 b <- 'b'
                 d <- 'd'
