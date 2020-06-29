@@ -1,5 +1,6 @@
 local assertions = require"test.assertions"
 assert:register("assertion", "contains_error", assertions.contains_error)
+assert:register("assertion", "same_ast", assertions.same_ast)
 
 context("Generator", function()
     setup(function()
@@ -13,8 +14,8 @@ context("Generator", function()
                 local src = 's <- "a"'
                 local parser = generator.gen(src)
                 local expected = {
-                    tag = 's',
-                    { tag = 'token', 'a' }
+                    tag = 's', pos = 1,
+                    { tag = 'token', pos = 1, 'a' }
                 }
                 assert.are.same(expected, parser:match('a'))
                 assert.is.falsy(parser:match('aa'))
@@ -24,7 +25,7 @@ context("Generator", function()
 
             test("a not captured literal", function()
                 local parser = generator.gen("s <- 'a'")
-                assert.are.same({ tag = 's' }, parser:match('a'))
+                assert.are.same({ tag = 's', pos = 1 }, parser:match('a'))
                 assert.is.falsy(parser:match('aa'))
                 assert.is.falsy(parser:match('ab'))
                 assert.is.falsy(parser:match('b'))
@@ -35,12 +36,32 @@ context("Generator", function()
                     s <- '->' "a" '<-'
                 ]]
                 local parser = generator.gen(src)
+
                 local expected = {
-                    tag = 's',
-                    { tag = 'token', 'a' }
+                    tag = 's', pos = 1,
+                    { 
+                        tag = 'token', pos = 3,
+                        'a' 
+                    }
                 }
                 assert.are.same(expected, parser:match('->a<-'))
+
+                expected = {
+                    tag = 's', pos = 1,
+                    { 
+                        tag = 'token', pos = 5,
+                        'a' 
+                    }
+                }
                 assert.are.same(expected, parser:match('->  a<- '))
+
+                expected = {
+                    tag = 's', pos = 2,
+                    { 
+                        tag = 'token', pos = 5,
+                        'a' 
+                    }
+                }
                 assert.are.same(expected, parser:match(' -> a <- '))
 
                 assert.is.falsy(parser:match('->a<--'))
@@ -57,13 +78,55 @@ context("Generator", function()
                 local parser = generator.gen(src)
 
                 local expected = {
-                    tag = 's',
-                    { tag = 'token', '{' },
-                    { tag = 'token', '}' },
+                    tag = 's', pos = 1,
+                    { 
+                        tag = 'token', pos = 1,
+                        '{' 
+                    },
+                    { 
+                        tag = 'token', pos = 3,
+                        '}'
+                    },
                 }
-                assert.are.same(expected, parser:match('{x}'))
+                assert.same_ast(expected, parser:match('{x}'))
+
+                expected = {
+                    tag = 's', pos = 1,
+                    { 
+                        tag = 'token', pos = 1,
+                        '{' 
+                    },
+                    { 
+                        tag = 'token', pos = 4,
+                        '}'
+                    },
+                }
                 assert.are.same(expected, parser:match('{x }'))
+
+                expected = {
+                    tag = 's', pos = 1,
+                    { 
+                        tag = 'token', pos = 1,
+                        '{' 
+                    },
+                    { 
+                        tag = 'token', pos = 5,
+                        '}'
+                    },
+                }
                 assert.are.same(expected, parser:match('{  x} '))
+
+                expected = {
+                    tag = 's', pos = 2,
+                    { 
+                        tag = 'token', pos = 2,
+                        '{' 
+                    },
+                    { 
+                        tag = 'token', pos = 7,
+                        '}'
+                    },
+                }
                 assert.are.same(expected, parser:match(' {  x } '))
             end)
 
@@ -76,13 +139,13 @@ context("Generator", function()
                     tag = 's',
                     { tag = 'token', 'a' }
                 }
-                assert.are.same(expected, parser:match'a')
+                assert.same_ast(expected, parser:match'a')
 
                 expected[1][1] = 'b'
-                assert.are.same(expected, parser:match'b')
+                assert.same_ast(expected, parser:match'b')
 
                 expected[1][1] = 'c'
-                assert.are.same(expected, parser:match'c')
+                assert.same_ast(expected, parser:match'c')
             end)
 
             test("empty token", function()
@@ -108,16 +171,16 @@ context("Generator", function()
                     tag = 's',
                     { tag = 'token', 'a' }
                 }
-                assert.are.same(expected, parser:match('a!'))
-                assert.are.same(expected, parser:match('a  !'))
+                assert.same_ast(expected, parser:match('a!'))
+                assert.same_ast(expected, parser:match('a  !'))
 
                 expected[1][1] = 'b'
-                assert.are.same(expected, parser:match('{ b }'))
-                assert.are.same(expected, parser:match('{   b }'))
+                assert.same_ast(expected, parser:match('{ b }'))
+                assert.same_ast(expected, parser:match('{   b }'))
 
                 expected[1][1] = 'c'
-                assert.are.same(expected, parser:match('&c'))
-                assert.are.same(expected, parser:match('&   c  '))
+                assert.same_ast(expected, parser:match('&c'))
+                assert.same_ast(expected, parser:match('&   c  '))
             end)
 
             test("usage of initial automatic SKIP", function()
@@ -129,16 +192,16 @@ context("Generator", function()
                     tag = 's',
                     { tag = 'token', 'a' }
                 }
-                assert.are.same(expected, parser:match(' a!'))
-                assert.are.same(expected, parser:match('     a  !'))
+                assert.same_ast(expected, parser:match(' a!'))
+                assert.same_ast(expected, parser:match('     a  !'))
 
                 expected[1][1] = 'b'
-                assert.are.same(expected, parser:match(' { b }'))
-                assert.are.same(expected, parser:match('    {   b }'))
+                assert.same_ast(expected, parser:match(' { b }'))
+                assert.same_ast(expected, parser:match('    {   b }'))
 
                 expected[1][1] = 'c'
-                assert.are.same(expected, parser:match(' &c'))
-                assert.are.same(expected, parser:match('   &   c  '))
+                assert.same_ast(expected, parser:match(' &c'))
+                assert.same_ast(expected, parser:match('   &   c  '))
             end)
 
             test("a recursive syntactic rule", function()
@@ -148,20 +211,20 @@ context("Generator", function()
                 local parser = generator.gen(src)
                 
                 local expected = {
-                    tag = 's',
+                    tag = 's', pos = 3,
                     {
-                        tag = 's',
+                        tag = 's', pos = 4,
                         {
-                            tag = 's',
+                            tag = 's', pos = 7,
                             {
-                                tag = 's',
-                                { tag = 'token', 'x' }
+                                tag = 's', pos = 11,
+                                { tag = 'token', pos = 11, 'x' }
                             }
                         }
                     }
                 }
                 assert.are.same(expected, parser:match('  {{  {   x } }   }'))
-                assert.are.same({ tag = 's', { tag = 'token', 'x' } }, parser:match('x'))
+                assert.same_ast({ tag = 's', { tag = 'token', 'x' } }, parser:match('x'))
 
                 assert.is.falsy(parser:match('{ x'))
                 assert.is.falsy(parser:match('{ x'))
@@ -185,8 +248,8 @@ context("Generator", function()
                     { tag = 'token', 'b' },
                 }
             }
-            assert.are.same(expected, parser:match('{b}'))
-            assert.are.same(expected, parser:match('  {     b } '))
+            assert.same_ast(expected, parser:match('{b}'))
+            assert.same_ast(expected, parser:match('  {     b } '))
 
             expected = {
                 tag = 's',
@@ -195,8 +258,8 @@ context("Generator", function()
                     { tag = 'token', 'p' },
                 }
             }
-            assert.are.same(expected, parser:match('(p)'))
-            assert.are.same(expected, parser:match('( p)   '))
+            assert.same_ast(expected, parser:match('(p)'))
+            assert.same_ast(expected, parser:match('( p)   '))
 
             assert.are.falsy(parser:match('{ p }'))
             assert.are.falsy(parser:match('{  {p }'))
@@ -218,9 +281,9 @@ context("Generator", function()
                 { tag = 'FIRST', 'Gustavo' },
                 { tag = 'LAST', 'Castellanos' },
             }
-            assert.are.same(expected, parser:match('GustavoCastellanos'))
-            assert.are.same(expected, parser:match('Gustavo Castellanos'))
-            assert.are.same(expected, parser:match('   Gustavo    Castellanos'))
+            assert.same_ast(expected, parser:match('GustavoCastellanos'))
+            assert.same_ast(expected, parser:match('Gustavo Castellanos'))
+            assert.same_ast(expected, parser:match('   Gustavo    Castellanos'))
             assert.is.falsy(parser:match('GustavoC astellanos'))
         end)
 
@@ -252,23 +315,23 @@ context("Generator", function()
             local parser = generator.gen(src)
 
             local expected = {
-                tag = 'list',
+                tag = 'list', pos = 1,
                 {
-                    tag = 'NUMBER',
+                    tag = 'NUMBER', pos = 1,
                     '123'
                 },{
-                    tag = 'NUMBER',
+                    tag = 'NUMBER', pos = 5,
                     '123123123.3'
                 },{
-                    tag = 'NUMBER',
+                    tag = 'NUMBER', pos = 17,
                     '12'
                 },{
-                    tag = 'NUMBER',
+                    tag = 'NUMBER', pos = 20,
                     '1.23'
                 },
             }
             assert.are.same(expected, parser:match("123 123123123.3 12 1.23"))
-            assert.are.same(expected, parser:match(" 123   123123123.3   12  1.23   "))
+            assert.same_ast(expected, parser:match(" 123   123123123.3   12  1.23   "))
             assert.is.falsy(parser:match("123 12.3121.23"))
         end)
 
@@ -287,9 +350,9 @@ context("Generator", function()
                 { tag = 'BIT', '0' },
                 { tag = 'BIT', '1' },
             }
-            assert.are.same(expected, parser:match('00101'))
-            assert.are.same(expected, parser:match('  00 1         0 1    '))
-            assert.are.same(expected, parser:match(' 0   0 10         1'))
+            assert.same_ast(expected, parser:match('00101'))
+            assert.same_ast(expected, parser:match('  00 1         0 1    '))
+            assert.same_ast(expected, parser:match(' 0   0 10         1'))
             assert.is.falsy(parser:match(' 00 1 10 1 00 1b 0'))
         end)
 
@@ -305,8 +368,8 @@ context("Generator", function()
                 tag = 'rand_bits',
                 { tag = 'BITS', '00101'}
             }
-            assert.are.same(expected, parser:match('00101'))
-            assert.are.same(expected, parser:match('   00101 '))
+            assert.same_ast(expected, parser:match('00101'))
+            assert.same_ast(expected, parser:match('   00101 '))
             assert.is.falsy(parser:match('00 101'))
             assert.is.falsy(parser:match('  00 1         0 1    '))
             assert.is.falsy(parser:match(' 0   0 10         1'))
@@ -325,7 +388,7 @@ context("Generator", function()
                 { tag = 'token', 'print' },
                 { tag = 'ID', '_private_attr' },
             }
-            assert.are.same(expected, parser:match(input))
+            assert.same_ast(expected, parser:match(input))
             assert.is.falsy(parser:match("print 0is_boolean"))
         end)
 
@@ -342,7 +405,7 @@ context("Generator", function()
                 { tag = 'token', 'print' },
                 { tag = 'ID', 'isNumber?' },
             }
-            assert.are.same(expected, parser:match(input))
+            assert.same_ast(expected, parser:match(input))
             assert.is.falsy(parser:match("print is_boolean?"))
         end)
 
@@ -360,7 +423,7 @@ context("Generator", function()
                 { tag = 'token', 'print' },
                 { tag = 'ID', '_isNumber?' },
             }
-            assert.are.same(expected, parser:match(input))
+            assert.same_ast(expected, parser:match(input))
             assert.is.falsy(parser:match("print _is_boolean?"))
         end)
 
@@ -397,7 +460,7 @@ context("Generator", function()
                     { tag = 'ID', 'printx' },
                 },
             }
-            assert.are.same(expected, parser:match(input))
+            assert.same_ast(expected, parser:match(input))
         end)
 
         test("keyword rules and its own SKIP rule", function()
@@ -419,16 +482,16 @@ context("Generator", function()
                 vector3D.2
             ]]
             local expected = {
-                tag = 's',
+                tag = 's', pos = 17,
                 {
-                    tag = 'init',
-                    { tag = 'VECTOR', 'vector3' },
-                    { tag = 'ID', 'vector3D' },
+                    tag = 'init', pos = 17,
+                    { tag = 'VECTOR', pos = 17, 'vector3' },
+                    { tag = 'ID', pos = 25, 'vector3D' },
                 },
                 {
-                    tag = 'idx',
-                    { tag = 'ID', 'vector3D' },
-                    { tag = 'INT', '2' },
+                    tag = 'idx', pos = 71,
+                    { tag = 'ID', pos = 71, 'vector3D' },
+                    { tag = 'INT', pos = 80, '2' },
                 },
             }
             assert.are.same(expected, parser:match(input))
@@ -478,7 +541,7 @@ context("Generator", function()
                     { tag = 'INT', '2' },
                 },
             }
-            assert.are.same(expected, parser:match(input))
+            assert.same_ast(expected, parser:match(input))
         end)
 
     end)
@@ -492,7 +555,7 @@ context("Generator", function()
         local f1 = assert(io.open("./test/expected/json/examples/example1.json"))
         local input = f1:read("a")
         local expected = require"test.expected.json.examples.output1"
-        assert.are.same(expected, parser:match(input))
+        assert.same_ast(expected, parser:match(input))
         f1:close()
     end)
 
@@ -508,7 +571,7 @@ context("Generator", function()
         local expected = require"test.expected.lua.examples.output1"
         local ast, err, pos = parser:match(input)
         f:close()
-        assert.are.same(expected, ast)
+        assert.same_ast(expected, ast)
     end)
 
     context("throws", function()

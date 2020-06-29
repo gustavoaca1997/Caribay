@@ -101,7 +101,7 @@ local function from_tag(tag)
         To add the field 'tag' with the name or type
         of the node.
     ]]
-    return lp.Cg(lp.P('') / tag, 'tag')
+    return lp.Cg(lp.P('') / tag, 'tag') * lp.Cg(lp.Cp(), 'pos')
 end
 
 local function gen_auxiliars()
