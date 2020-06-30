@@ -921,10 +921,10 @@ context("Parser", function ( )
             assert.contains_error("Valid expression expected", parser.match, input)
         end)
 
-        test("'Missing comma' on bad written action", function()
-            local input = 's <- { "bla" func }'
-            assert.contains_error("Missing comma", parser.match, input)
-        end)
+        -- test("'Missing comma' on bad written action", function()
+        --     local input = 's <- { "bla" func }'
+        --     assert.contains_error("Missing comma", parser.match, input)
+        -- end)
 
         test("'Valid identifier expected' on bad written action I", function()
             local input = 's<-{"bla",}'

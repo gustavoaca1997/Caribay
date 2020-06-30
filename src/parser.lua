@@ -27,6 +27,7 @@ local peg_grammar = [=[
     ARROW_SKP   <- {:skippable: '<~' -> 'true' :} skip
 
     ORD_OP      <- '/' %s*
+    BACK_OP     <- '=' skip
     STAR_OP     <- '*' skip
     REP_OP      <- '+' skip
     OPT_OP      <- '?' skip
@@ -43,24 +44,27 @@ local peg_grammar = [=[
     LBRACKET    <- '{' skip
     RBRACKET    <- '}' skip
     COMMA       <- ',' skip
+    COLON       <- ':' skip
 
     exp     <- ord 
-    action  <- {| {:tag: '' -> 'action' :} LBRACKET exp^ErrExp COMMA^ErrComma {:action: ID^ErrID :} RBRACKET^ErrRBracket |}
-
     ord     <- (seq (ORD_OP seq^ErrChoice)*)   -> parse_ord
     seq     <- (unary (skip unary)*)      -> parse_seq
 
-    unary   <- star / rep / opt / and / not / atom
+    unary   <- back / star / rep / opt / and / not / atom
+    back    <- {| {:tag: '' -> 'back_exp' :}   BACK_OP {ID}^ErrID skip |}
     star    <- {| {:tag: '' -> 'star_exp' :}   atom STAR_OP |}
     rep     <- {| {:tag: '' -> 'rep_exp' :}    atom REP_OP |}
     opt     <- {| {:tag: '' -> 'opt_exp' :}    atom OPT_OP |}
     and     <- {| {:tag: '' -> 'and_exp' :}    AND_OP atom^ErrAtom |}
     not     <- {| {:tag: '' -> 'not_exp' :}    NOT_OP atom^ErrAtom |}
 
-    atom    <- token / class / name / LPAR exp RPAR^ErrRPar / action
+    atom    <- token / class / name / LPAR exp RPAR^ErrRPar / action / group
 
-    LITERAL1    <- {| {:tag: '' -> 'literal' :} {:captured: '' -> 'true' :} LQUOTES  ('\"' / [^"])* -> parse_esc RQUOTES^ErrRQuotes |}
-    LITERAL2    <- {| {:tag: '' -> 'literal' :}  LQUOTE   ("\'" / [^'])* -> parse_esc RQUOTE^ErrRQuote |}
+    action  <- {| {:tag: '' -> 'action' :} LBRACKET exp^ErrExp COMMA {:action: ID^ErrID :} skip RBRACKET^ErrRBracket |}
+    group   <- {| {:tag: '' -> 'group' :}  LBRACKET exp^ErrExp COLON {:group: ID^ErrID :} skip RBRACKET^ErrRBracket |}
+
+    LITERAL1    <- {| {:tag: '' -> 'literal' :} {:captured: '' -> 'true' :} LQUOTES  ('\"' &([^"]* '"') / [^"])* -> parse_esc RQUOTES^ErrRQuotes |}
+    LITERAL2    <- {| {:tag: '' -> 'literal' :}  LQUOTE   ("\'" &([^']* "'") / [^'])* -> parse_esc RQUOTE^ErrRQuote |}
     KEYWORD     <- {| {:tag: '' -> 'keyword' :}  LBSTICK  [^`]+ -> parse_esc RBSTICK^ErrRBStick|}
 
     ANY     <- {| {:tag: '' -> 'any' :}        { '.' } skip |}

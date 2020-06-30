@@ -1,34 +1,37 @@
 return {
-    tag = 'chunk',
+    tag = 'program',
     {
-        tag = 'stat',
+        tag = 'chunk',
         {
-            tag = 'varlist',
+            tag = 'stat',
             {
-                tag = 'var',
-                { tag = 'ID', '_x_10' },
+                tag = 'varlist',
+                {
+                    tag = 'var',
+                    { tag = 'ID', '_x_10' },
+                },
             },
+            {
+                tag = 'explist',
+                {
+                    tag = 'exp',
+                    { tag = 'NUMBER', '10' },
+                }
+            }
         },
         {
-            tag = 'explist',
+            tag = 'laststat',
+            { tag = 'token', 'return' },
             {
-                tag = 'exp',
-                { tag = 'NUMBER', '10' },
-            }
-        }
-    },
-    {
-        tag = 'laststat',
-        { tag = 'token', 'return' },
-        {
-            tag = 'explist',
-            {
-                tag = 'exp',
+                tag = 'explist',
                 {
-                    tag = 'prefiexp',
-                    { tag = 'ID', '_x_10' },
+                    tag = 'exp',
+                    {
+                        tag = 'prefiexp',
+                        { tag = 'ID', '_x_10' },
+                    }
                 }
             }
         }
-    }
+    },
 }

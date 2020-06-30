@@ -7,6 +7,7 @@ context("Generator", function()
         generator = require"src.generator"
         re = require"relabel"
         lfs = require"lfs"
+        src_parser = require"src.parser"
     end)
 
     context("generates a parser from a grammar with", function()
@@ -129,6 +130,20 @@ context("Generator", function()
                     },
                 }
                 assert.are.same(expected, parser:match(' {  x } '))
+            end)
+
+            test("a backslash", function()
+                local src = [[
+                    s <- "\\t" "a"
+                ]]
+                print(src)
+                local parser = generator.gen(src)
+                local input = [[
+                    \ta
+                ]]
+                local ast, err, pos = parser:match(input)
+                if not ast then print('ah', input:sub(pos, pos), re.calcline(input, pos)) end
+                assert.is.truthy(parser:match(input))
             end)
 
             test("an ordered choice of literals", function()
@@ -289,7 +304,7 @@ context("Generator", function()
         end)
 
         test("and predicate", function()
-            -- Non-context free language {a^n b^n c^n : n >= 1}
+            -- Context-sensitive language {a^n b^n c^n : n >= 1}
             local src = [[
                 s <- &(A 'c') 'a'+ B
                 fragment A <- 'a' A? 'b'
@@ -573,6 +588,17 @@ context("Generator", function()
             assert.same_ast(expected, parser:match(input))
         end)
 
+        pending("back reference", function()
+
+        end)
+
+        pending("semantic action", function()
+
+        end)
+
+        pending("named group", function()
+
+        end)
     end)
 
     pending("generates a parser from expression grammar", function()
@@ -602,7 +628,15 @@ context("Generator", function()
     test("generates a parser from Lua grammar", function()
         local f = assert(io.open("./test/expected/lua/grammar.peg", "r"))
         local src = f:read("a")
-        local parser = generator.gen(src)
+        local parser = generator.gen(src, {
+            check_eq = function(subject, pos, closing, opening)
+                return #closing[1] == #opening[1]
+            end,
+            always_true = function(s, i, x)
+                print('auxilio', x, re.calcline(s, i))
+                return true
+            end
+        })
         f:close()
 
         -- Case 1:
@@ -613,15 +647,50 @@ context("Generator", function()
         f:close()
         assert.same_ast(expected, ast)
 
+        -- Case 2:
+        input = [==[
+            return [=[aa]=]
+        ]==]
+
+        expected = {
+            tag = 'program',
+            {
+                tag = 'chunk',
+                {
+                    tag = 'laststat',
+                    { tag = 'token', 'return' },
+                    {
+                        tag = 'explist',
+                        {
+                            tag = 'exp',
+                            { tag = 'STRING', '[=[aa]=]' }
+                        }
+                    }
+                }
+            }
+        }
+        assert.same_ast(expected, parser:match(input))
+
+        -- Case 3:
+        input = [[
+            return 'abc' .. "def"
+        ]]
+        ast, err, pos = parser:match(input)
+        if not ast then print('abcdef', re.calcline(input, pos)) end
+        assert.is.truthy(parser:match(input))
+
         -- Other cases:
         local folder_name = [[./test/lua5.1-tests/]]
         for file_name in lfs.dir(folder_name) do
-            f = assert(io.open(folder_name .. file_name, "r"))
-            local input = f:read("a")
-            local ast, err, pos = parser:match(input)
-            if not ast then print(file_name, err, re.calcline(input, pos)) end
-            assert.is.truthy(ast)
-            f:close()
+            if file_name ~= '.' and file_name ~= '..' then
+                f = assert(io.open(folder_name .. file_name, "r"))
+                local input = assert(f:read("a"))
+
+                local ast, err, pos = parser:match(input)
+                if not ast then print(file_name, err, re.calcline(input, pos) ) end
+                assert.is.truthy(ast)
+                f:close()
+            end
         end
     end)
 
@@ -658,6 +727,18 @@ context("Generator", function()
                 generator.gen(src)
             end
             assert.has_error(fn, "Rule 1: Trying to use a syntactic element in a lexical rule")
+        end)
+
+        pending("back expression bad written", function()
+
+        end)
+
+        pending("action bad written", function()
+
+        end)
+
+        pending("group bad written", function()
+
         end)
     end)
 

@@ -12,6 +12,36 @@ local M = {}
 -- generators for each kind of node
 local generator = {}
 
+-- All keywords marked with backsticks
+M.keywords = {}
+
+----------------------------------------------------------------------------
+------------------------- Auxiliar functions -------------------------------
+----------------------------------------------------------------------------
+
+local function parent_node_if_necessary(tag)
+    return function ( captures )
+        if (#captures == 1) then
+            return captures[1]
+        else
+            captures.tag = tag
+            return captures
+        end
+    end
+end
+
+local function dont_match_keyword(subject, pos, ast_node)
+    --[[
+        Match ID if it is not a keyword
+    ]]
+    local identifier = ast_node[1]
+    if M.keywords[identifier] then
+        return false
+    else
+        return true, ast_node
+    end
+end
+
 ----------------------------------------------------------------------------
 ----------------------------------------------------------------------------
 
@@ -46,26 +76,31 @@ local function get_syms (ast)
             type = 'syn',
             is_fragment = true,
             is_keyword = false,
+            sym_str = 'SKIP',
         },
         ID_START = Symbol:new{
             type = 'lex',
             is_fragment = true,
             is_keyword = false,
+            sym_str = 'ID_START',
         },
         ID_END = Symbol:new{
             type = 'lex',
             is_fragment = true,
             is_keyword = false,
+            sym_str = 'ID_END',
         },
         ID = Symbol:new{
             type = 'lex',
             is_fragment = false,
             is_keyword = false,
+            sym_str = 'ID',
         }
     }
 
     for idx, rule in ipairs(ast) do
         local sym = rule[1]
+        local sym_str = sym[1]
         local type = sym.tag == 'syn_sym' and 'syn' or 'lex'
         local is_fragment = rule.fragment and true or false     -- rule.fragment is "true" or nil
         local is_keyword = rule.keyword and true or false       -- rule.keyword is "true" or nil
@@ -77,13 +112,15 @@ local function get_syms (ast)
         end
 
         -- Save rule
-        syms[sym[1]] = syms[sym[1]] or Symbol:new{ -- `or` mainly for keeping auxiliar entries intact
+        syms[sym_str] = syms[sym_str] or Symbol:new{ -- `or` mainly for keeping auxiliar entries intact
             type = type,
             is_fragment = is_fragment,
             is_keyword = is_keyword,
             is_skippable = is_skippable,
             rule_no = idx,
+            sym_str = sym_str,
         }
+        
     end
     M.syms = syms
     return M.syms
@@ -126,7 +163,7 @@ local function gen_auxiliars()
 
     -- Generate an 'ID_START' rule
     if not M.grammar['ID_START'] then
-        M.grammar['ID_START'] = re.compile('[a-zA-Z]+')
+        M.grammar['ID_START'] = re.compile('[a-zA-Z]')
     end
 
     -- Generate an 'ID_END' rule
@@ -136,11 +173,11 @@ local function gen_auxiliars()
 
     -- Generate 'ID' rule
     local capture = lp.C( lp.V'ID_START' * lp.V'ID_END'^-1 )
-    M.grammar['ID'] = lp.Ct( from_tag('ID') * capture )
+    M.grammar['ID'] = lp.Cmt( lp.Ct( from_tag('ID') * capture ), dont_match_keyword )
 end
 
 local function throw_error(err, sym)
-    error('Rule ' .. sym.rule_no .. ': ' .. err)
+    error('Rule ' .. sym.sym_str .. ': ' .. err)
 end
 
 local function to_keyword(pattern)
@@ -156,17 +193,6 @@ end
 
 local function capt_if_syn(pattern, sym)
     return sym:is_syn() and lp.C(pattern) or pattern
-end
-
-local function parent_node_if_necessary(tag)
-    return function ( captures )
-        if (#captures == 1) then
-            return captures[1]
-        else
-            captures.tag = tag
-            return captures
-        end
-    end
 end
 
 ----------------------------------------------------------------------------
@@ -187,7 +213,7 @@ generator['rule'] = function(node)
         M.grammar[sym_str] = rhs_lpeg
     else
         -- If it's a lexical rule, capture all RHS.
-        rhs_lpeg = sym:is_lex() and lp.C(rhs_lpeg) or rhs_lpeg
+        rhs_lpeg = sym:is_lex() and lp.C(rhs_lpeg / 0) or rhs_lpeg
 
         -- If it's skippable, don't capture if it only has one child
         if sym.is_skippable then
@@ -201,12 +227,12 @@ end
 generator['lex_sym'] = function(node, sym)
     local lex = node[1]
     local lex_sym = M.syms[lex]
-
-    if sym:is_lex() and not lex_sym.is_fragment then
-        throw_error('Trying to use a not fragment lexical element in a lexical rule', sym)
-    else
-        return add_SKIP(lp.V(lex), sym)
-    end
+    return add_SKIP(lp.V(lex), sym)
+    -- if sym:is_lex() and not lex_sym.is_fragment then
+    --     throw_error('Trying to use a not fragment lexical element in a lexical rule', sym)
+    -- else
+    --     return add_SKIP(lp.V(lex), sym)
+    -- end
 
 end
 
@@ -235,6 +261,10 @@ generator['seq_exp'] = function(node, sym)
         ret = ret * to_lpeg(exp, sym)
     end
     return ret
+end
+
+generator['back_exp'] = function(node, sym)
+    return lp.Cb(node[1])
 end
 
 generator['star_exp'] = function(node, sym)
@@ -274,6 +304,10 @@ end
 
 generator['keyword'] = function(node, sym)
     local literal = node[1]
+
+    -- Keep track of kwywords
+    M.keywords[literal] = true
+
     local pattern = to_keyword(lp.P(literal))
     if sym:is_syn() then
         pattern = lp.Ct( from_tag('token') * lp.C(pattern) )
@@ -296,12 +330,27 @@ generator['empty'] = function(node, sym)
     return lp.P('')
 end
 
+generator['action'] = function(node, sym)
+    local action_name = node.action
+    local action = M.actions[action_name]
+    local exp_lpeg = to_lpeg(node[1], sym)
+    return lp.Cmt(exp_lpeg, action)
+end
+
+generator['group'] = function(node, sym)
+    local group_name = node.group
+    local exp_lpeg = to_lpeg(node[1], sym)
+    return lp.Cg(exp_lpeg, group_name)
+end
+
 ----------------------------------------------------------------------------
 ----------------------------------------------------------------------------
 
-M.gen = function (input)
+M.gen = function (input, actions)
     local ast = parser.match(input)
     M.grammar = {}
+    M.keywords = {}
+    M.actions = actions or {}
     get_syms(ast)
 
     for _, rule in ipairs(ast) do
