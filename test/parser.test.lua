@@ -1,20 +1,5 @@
-local function contains_error(state, arguments)
-    local expectedMsg, toCall = table.unpack(arguments)
-
-    local ok, errMsg = pcall(toCall, table.unpack(arguments, 3))
-    if ok then
-        return false
-    else
-        local pos = string.find( errMsg, expectedMsg )
-        if pos then
-            return true
-        else
-            error(errMsg)
-        end
-    end
-end
-
-assert:register("assertion", "contains_error", contains_error)
+local assertions = require"test.assertions"
+assert:register("assertion", "contains_error", assertions.contains_error)
 
 context("Parser", function ( )
     local parser
@@ -298,7 +283,7 @@ context("Parser", function ( )
                         }
                     }
                 }
-                assert.are.same(expected, parser.match(input))
+                assert.are.same(expected[1][2][2], parser.match(input)[1][2][2])
             end)
 
             test("empty-character I", function()
@@ -414,6 +399,48 @@ context("Parser", function ( )
             assert.are.same(expected, output)
         end)
 
+        test("skippable annotation", function()
+            local input = [[
+                exp <- sum
+                sum <~ T ('+' T)*
+                T   <- %d+ 
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 'exp' },
+                    { tag = 'syn_sym', 'sum' },
+                },
+                {
+                    tag = 'rule',
+                    skippable = 'true',
+                    { tag = 'syn_sym', 'sum' },
+                    {
+                        tag = 'seq_exp',
+                        { tag = 'lex_sym', 'T' },
+                        {
+                            tag = 'star_exp',
+                            {
+                                tag = 'seq_exp',
+                                { tag = 'literal', '+' },
+                                { tag = 'lex_sym', 'T' },
+                            }
+                        }
+                    }
+                },
+                {
+                    tag = 'rule',
+                    { tag = 'lex_sym', 'T' },
+                    {
+                        tag = 'rep_exp',
+                        { tag = 'class', '%d' },
+                    }
+                }
+            }
+            local output = parser.match(input)
+            assert.are.same(expected, output)
+        end)
+
         test("fragment annotation", function()
             local input = [[
                 NUMBER <- INT / HEX / FLOAT
@@ -505,7 +532,7 @@ context("Parser", function ( )
         test("keyword annotation", function()
             local input = [[
                 type <- "number" / "string" / VECTOR
-                @VECTOR <- "vector" ([1-9][0-9]*)?
+                keyword VECTOR <- "vector" ([1-9][0-9]*)?
             ]]
             local expected = {
                 {
@@ -545,7 +572,7 @@ context("Parser", function ( )
         test("keyword and fragment annotation", function()
             local input = [[
                 type <- "number" / "string" / VECTOR
-                fragment @VECTOR <- "vector" ([1-9][0-9]*)?
+                fragment keyword VECTOR <- "vector" ([1-9][0-9]*)?
             ]]
             local expected = {
                 {
@@ -824,18 +851,34 @@ context("Parser", function ( )
             assert.contains_error("Arrow expected", parser.match, input)
         end)
 
-        test("'Lexical identifier expected' on bad written fragment annotation I", function()
+        test("'Annnotated symbol expected' on bad written fragment annotation I", function()
             local input = [[
                 type <- "number" / "string" / VECTOR
-                fragment vector <- "vector" ([1-9][0-9]*)?
+                fragment <- "vector" ([1-9][0-9]*)?
+            ]]
+            assert.contains_error("Annotated symbol expected", parser.match, input)
+        end)
+
+        test("'Annotated symbol expected' on bad written fragment annotation II", function()
+            local input = [[
+                type <- "number" / "string" / VECTOR
+                fragment keyword <- "vector" ([1-9][0-9]*)?
+            ]]
+            assert.contains_error("Annotated symbol expected", parser.match, input)
+        end)
+
+        test("'Lexical identifier expected' on bad written keyword annotation", function()
+            local input = [[
+                type <- "number" / "string" / VECTOR
+                keyword vector <- "vector" ([1-9][0-9]*)?
             ]]
             assert.contains_error("Lexical identifier expected", parser.match, input)
         end)
 
-        test("'Lexical identifier expected' on bad written fragment annotation II", function()
+        test("'Lexical identifier expected' on bad written keyword annotation", function()
             local input = [[
                 type <- "number" / "string" / VECTOR
-                fragment @vector <- "vector" ([1-9][0-9]*)?
+                keyword <- "vector" ([1-9][0-9]*)?
             ]]
             assert.contains_error("Lexical identifier expected", parser.match, input)
         end)
@@ -886,9 +929,24 @@ context("Parser", function ( )
             assert.contains_error("Valid expression expected", parser.match, input)
         end)
 
-        test("'Missing comma' on bad written action", function()
-            local input = 's <- { "bla" func }'
-            assert.contains_error("Missing comma", parser.match, input)
+        test("back expression bad written I", function()
+            local input = 's <- ^^count'
+            assert.contains_error('Valid identifier expected', parser.match, input)
+        end)
+
+        test("back expression bad written I", function()
+            local input = 's <- a ^'
+            assert.contains_error('Valid identifier expected', parser.match, input)
+        end)
+
+        test("action bad written", function()
+            local input = 's <- { "a" , }'
+            assert.contains_error('Valid identifier expected', parser.match, input)
+        end)
+
+        test("group bad written", function()
+            local input = 's <- { "a" : }'
+            assert.contains_error('Valid identifier expected', parser.match, input)
         end)
 
         test("'Valid identifier expected' on bad written action I", function()
@@ -926,7 +984,7 @@ context("Parser", function ( )
 
         test("'Valid choice expected' on bad written ordered choice II", function()
             local input = [[
-                s <- a b / d /
+                s <- a b / d / )
                 a <- 'a'
                 b <- 'b'
                 d <- 'd'
@@ -1029,9 +1087,5 @@ context("Parser", function ( )
             local input = 's <- [xyz0-'
             assert.contains_error("Right bound of range expected", parser.match, input)
         end)
-
-        -- pending("'Missing annotation' on bad written annotation", function()
-
-        -- end)
     end)
 end)

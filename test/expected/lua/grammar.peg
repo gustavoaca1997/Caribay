@@ -1,0 +1,78 @@
+program     <-  SP_COMMENT? chunk
+chunk       <-  (stat ';'?)* (laststat ';'?)?
+block       <-  chunk
+
+stat        <-  `do` block `end` /
+                `while` exp `do` block `end` /
+                `repeat` block `until` exp /
+                `if` exp `then` block (`elseif` exp `then` block)* (`else` block)? `end` /
+                `for` ID '=' exp ',' exp (',' exp)? `do` block `end` /
+                `for` namelist `in` explist `do` block `end` /
+                `function` funcname funcbody /
+                `local` `function` ID funcbody /
+                `local` namelist ('=' explist)? / 
+                varlist '=' explist /
+                functioncall
+
+laststat    <-  `return` explist? / `break`
+
+funcname    <-  ID ('.' ID)* (':' ID)? 
+
+varlist     <-  var (',' var)*
+var         <-  ( functioncall / prefiatom ) sufiexp+ / ID
+
+key_exp     <- '[' exp ']'
+dot_exp     <- '.' ID
+sufiexp     <~ key_exp / dot_exp
+
+namelist    <- ID (',' ID)*
+
+explist     <-  exp (',' exp)*
+
+exp         <-  conj (`or` conj)*
+conj        <~  comp (`and` comp)*
+comp        <~  conc (COMP_OP conc)*
+conc        <~  arit ('..' arit)*
+arit        <~  term (TERM_OP term)*
+term        <~  factor (FACTOR_OP factor)*
+factor      <~  unary ('^' unary)*
+unary       <~  UNARY_OP* atom_exp
+atom_exp    <~  `nil` / `false` / `true` / NUMBER / STRING / function /
+                "..." / prefiexp / tableconstructor
+
+prefiatom   <~ ID / '(' exp ')'
+prefiexp    <~ ( functioncall / prefiatom ) sufiexp*
+
+functioncall <- prefiatom ( sufiexp* (args / ':' ID args) )+
+
+args         <- '(' explist? ')' / tableconstructor / STRING
+
+function    <- `function` funcbody
+funcbody    <- '(' parlist? ')' block `end`
+parlist     <- namelist (',' '...')? / '...'
+
+tableconstructor    <-  '{' fieldlist? '}'
+fieldlist   <-  field (FIELDSEP field)* FIELDSEP?
+field       <- '[' exp ']' '=' exp / ID '=' exp / exp
+
+ID_START    <- [a-zA-Z_]+
+
+FIELDSEP    <- ',' / ';'
+
+ESC         <-  '\\' ('a' / 'b' / 'f' / 'n' / 'r' / 't' / 'v' / '\\' / "'" / '"' / '\n')
+STRING      <- '"' (ESC / [^"])* '"' / "'"  (ESC / [^'])* "'" / LONG_STR
+
+EQUALS      <-  '='*
+OPEN_STR    <-  '[' EQUALS '['
+CLOSE_STR   <-  ']' EQUALS ']'
+CLOSE_EQ    <-  { CLOSE_STR ^init_eq , check_eq }
+LONG_STR    <-  { OPEN_STR : init_eq } '\n'? (!CLOSE_EQ .)* CLOSE_STR
+
+NUMBER      <- (%d* '.' %d+ / %d+ '.' / %d+) (('e' / 'E') '-'? %d+)?
+COMP_OP     <-  '<=' / '>=' / '~=' / '==' / '<' / '>'
+TERM_OP     <- '+' / '-'
+FACTOR_OP   <- '*' / '/' / '%'
+UNARY_OP    <- `not` / '#' / '-'
+
+COMMENT     <- '--' (LONG_STR / [^%nl]*)
+SP_COMMENT  <- '#' [^%nl]*

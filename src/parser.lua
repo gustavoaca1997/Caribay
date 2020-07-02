@@ -3,16 +3,16 @@ local lp = require"lpeglabel"
 
 local M = {}
 
--- TODO: Check lexical rules only use lexical symbols
--- TODO: Check that fragments are only called from lexical rules.
--- TODO: Save on a table all the symbols, with info about their types and annotations.
-
 local peg_grammar = [=[
     S       <- [%s%nl]* {| rule+ |} !.
-    rule    <- {| {:tag: '' -> 'rule' :} {:fragment: frgmnt_annot -> 'true' :}? {:keyword: AT -> 'true' :}? name ARROW^ErrArrow exp^ErrExp (newlines / !. / %{ErrRuleEnd}) |}
+    rule    <- {| {:tag: '' -> 'rule' :} frgmnt? kywrd? name arrow^ErrArrow exp^ErrExp (newlines / !. )^ErrRuleEnd |}
     
-    frgmnt_annot <- 'fragment' spaces (&(AT? LEX_ID))^ErrLexId
-    AT          <- "@"
+    frgmnt       <- {:fragment: frgmnt_annot -> 'true' :}
+    frgmnt_annot <- "fragment" spaces (&(kywrd_annot / name))^ErrAnnot
+
+    kywrd        <- {:keyword: kywrd_annot -> 'true' :}
+    kywrd_annot  <- "keyword" spaces (&LEX_ID)^ErrLexId
+
     SPACE       <- " "
     spaces      <- SPACE+
     skip        <- SPACE*
@@ -22,8 +22,12 @@ local peg_grammar = [=[
     SYN_ID  <- {| {:tag: '' -> 'syn_sym' :}    { [a-z][a-zA-Z0-9_]* } skip |}
     name    <- LEX_ID / SYN_ID
 
+    arrow       <- ARROW / ARROW_SKP 
     ARROW       <- '<-' skip
-    ORD_OP      <- '/' skip
+    ARROW_SKP   <- {:skippable: '<~' -> 'true' :} skip
+
+    ORD_OP      <- '/' %s*
+    BACK_OP     <- '^' skip
     STAR_OP     <- '*' skip
     REP_OP      <- '+' skip
     OPT_OP      <- '?' skip
@@ -40,29 +44,38 @@ local peg_grammar = [=[
     LBRACKET    <- '{' skip
     RBRACKET    <- '}' skip
     COMMA       <- ',' skip
+    COLON       <- ':' skip
 
     exp     <- ord 
-    action  <- {| {:tag: '' -> 'action' :} LBRACKET exp^ErrExp COMMA^ErrComma {:action: ID^ErrID :} RBRACKET^ErrRBracket |}
-
     ord     <- (seq (ORD_OP seq^ErrChoice)*)   -> parse_ord
     seq     <- (unary (skip unary)*)      -> parse_seq
 
-    unary   <- star / rep / opt / and / not / atom
+    unary   <- back / star / rep / opt / and / not / atom
+    back    <- {| {:tag: '' -> 'back_exp' :}   BACK_OP {ID}^ErrID skip |}
     star    <- {| {:tag: '' -> 'star_exp' :}   atom STAR_OP |}
     rep     <- {| {:tag: '' -> 'rep_exp' :}    atom REP_OP |}
     opt     <- {| {:tag: '' -> 'opt_exp' :}    atom OPT_OP |}
     and     <- {| {:tag: '' -> 'and_exp' :}    AND_OP atom^ErrAtom |}
     not     <- {| {:tag: '' -> 'not_exp' :}    NOT_OP atom^ErrAtom |}
 
-    atom    <- token / class / name / LPAR exp RPAR^ErrRPar / action
+    atom    <- token / class / name / LPAR exp RPAR^ErrRPar / action / group
 
-    LITERAL1    <- {| {:tag: '' -> 'literal' :} {:captured: '' -> 'true' :} LQUOTES  ('\"' / [^"])* -> parse_esc RQUOTES^ErrRQuotes |}
-    LITERAL2    <- {| {:tag: '' -> 'literal' :}  LQUOTE   ("\'" / [^'])* -> parse_esc RQUOTE^ErrRQuote |}
-    KEYWORD     <- {| {:tag: '' -> 'keyword' :}  LBSTICK  [^`]+ -> parse_esc RBSTICK^ErrRBStick|}
+    action  <- {| {:tag: '' -> 'action' :} LBRACKET exp^ErrExp COMMA {:action: ID^ErrID :} skip RBRACKET^ErrRBracket |}
+    group   <- {| {:tag: '' -> 'group' :}  LBRACKET exp^ErrExp COLON {:group: ID^ErrID :} skip RBRACKET^ErrRBracket |}
+
+    escaped <-  ('\' ('a' / 'b' / 'f' / 'n' / 'r' / 't' / 'v' / '\' / '"' / "'" / 'n')) -> parse_esc
+
+    literal1    <- {| (escaped / {[^"]})* |} -> concat_chars
+    literal2    <- {| (escaped / {[^']})* |} -> concat_chars
+    literal3    <- {| (escaped / {[^`]})+ |} -> concat_chars
+
+    CAPTURED    <- {| {:tag: '' -> 'literal' :} {:captured: '' -> 'true' :} LQUOTES  literal1 RQUOTES^ErrRQuotes |}
+    LITERAL     <- {| {:tag: '' -> 'literal' :}  LQUOTE   literal2 RQUOTE^ErrRQuote |}
+    KEYWORD     <- {| {:tag: '' -> 'keyword' :}  LBSTICK  literal3 RBSTICK^ErrRBStick|}
 
     ANY     <- {| {:tag: '' -> 'any' :}        { '.' } skip |}
     EMPTY   <- {| {:tag: '' -> 'empty' :}      ('%e' 'mpty'? -> '%%e') skip |}
-    token   <- LITERAL1 / LITERAL2 / KEYWORD / ANY / EMPTY
+    token   <- LITERAL / CAPTURED / KEYWORD / ANY / EMPTY
 
     ID          <- [A-Za-z][A-Za-z0-9_]*
     predefined  <- '%' ID
@@ -75,6 +88,8 @@ local peg_grammar = [=[
 M.errMsgs = {
     ErrArrow        = 'Arrow expected',
     ErrLexId        = 'Lexical identifier expected',
+    ErrName         = 'Symbol identifier expected',
+    ErrAnnot        = 'Annotated symbol expected',
     ErrExp          = 'Valid expression expected',
     ErrRuleEnd      = 'Missing end of rule',
     ErrComma        = 'Missing comma',
@@ -102,25 +117,32 @@ local function parse_binary(tag)
     end
 end
 
+local escape_map = {
+    ['\\a'] = '\a',
+    ['\\b'] = '\b',
+    ['\\f'] = '\f',
+    ['\\r'] = '\r',
+    ['\\n'] = '\n',
+    ['\\t'] = '\t',
+    ['\\v'] = '\v',
+    ['\\\\'] = '\\',
+    ['\\"'] = '"',
+    ["\\'"] = "'",
+}
+
 local function parse_esc(str)
-    local ret = str:
-                    gsub('\\a', '\a'):
-                    gsub('\\b', '\b'):
-                    gsub('\\f', '\f'):
-                    gsub('\\n', '\n'):
-                    gsub('\\r', '\r'):
-                    gsub('\\t', '\t'):
-                    gsub('\\v', '\v'):
-                    gsub('\\\\', '\\'):
-                    gsub('\\"', '"'):
-                    gsub("\\'", "'")
-    return ret
+   return escape_map[str]
+end
+
+local function concat_chars(parts)
+    return table.concat(parts)
 end
 
 local peg_parser = re.compile(peg_grammar, {
     parse_ord = parse_binary"ord_exp",
     parse_seq = parse_binary"seq_exp",
     parse_esc = parse_esc,
+    concat_chars = concat_chars,
 })
 
 function M.match(inp)

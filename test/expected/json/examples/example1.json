@@ -1,0 +1,30 @@
+{
+    "first name": "Fulanito",
+    "last name": "Perez",
+    "age": 13,
+    "single": true,
+    "parents": [
+        {
+            "first name": "Fulana",
+            "last name": "Lopez",
+            "age": 46,
+            "single": false,
+            "parents": []
+        },
+        {
+            "first name": "Fulano",
+            "last name": "Perez",
+            "age": 48,
+            "single": false,
+            "parents": [
+                {
+                    "first name": "Mengano",
+                    "last name": "Perez",
+                    "age": 75,
+                    "single": true,
+                    "parents": []
+                }
+            ]
+        }
+    ]
+}
