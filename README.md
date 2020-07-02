@@ -267,3 +267,9 @@ function(subject, pos, closing, opening)
     return #closing[1] == #opening[1]
 end
 ```
+
+___
+This project is part of the Google Summer of Code 2020. I am writing [some posts](https://dev.to/_gusgustavo/my-project-for-gsoc-2020-a-parser-generator-with-automatic-error-recovery-on-lpeg-label-3o2) about my journey building it.
+
+## About the name
+The parser generator is called Caribay, the daughter of Zuhé (the Sun) and Chía (the Moon) from a legend of the Mirripuyes (an indigenous group from Mérida, Venezuela). Since Lua means "Moon" in Portuguese, the tool being the daughter of Lua sounded nice to me. Also, the legend involves the origin of five famous peaks from Mérida, so the name is related to "generating" things.
