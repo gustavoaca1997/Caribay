@@ -69,13 +69,13 @@ User can define their own `ID_START` and `ID_END` rules.
 
 ### Literals
 #### Regular literals
-To match a single literal you write the following grammar:
+To match a single literal the user writes the following grammar:
 ```peg
 s <- 'this is a literal'
 ```
 
 #### Captured literals
-To also **capture** the literal in a syntactic rule, you write it with double quotes:
+To also **capture** the literal in a syntactic rule, the user writes it with double quotes:
 ```peg
 s <- "a"
 ```
@@ -83,7 +83,7 @@ The AST captured when matching _`a`_ is:
 ```lua
 { tag = 's', 'a' }
 ```
-You could also use a literal symbol:
+The user could also use a lexical symbol:
 ```peg
 S <- 'a'
 ```
@@ -91,7 +91,7 @@ or
 ```peg
 S <- "a"
 ```
-With lexical symbols doesn't matter if you use single or double quotes.
+With lexical symbols doesn't matter if the user uses single or double quotes.
 
 #### Keywords
 Keywords, which are surrounded by backsticks, are a special type of literals: Caribay captures them (when used on syntactic rules) and wraps them around code that ensures they are not confused with identifiers. Basically when matching a keyword _kw_, Caribay in reality matches:
