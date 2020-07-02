@@ -26,10 +26,7 @@ return {
                 tag = 'explist',
                 {
                     tag = 'exp',
-                    {
-                        tag = 'prefiexp',
-                        { tag = 'ID', '_x_10' },
-                    }
+                    { tag = 'ID', '_x_10' },
                 }
             }
         }

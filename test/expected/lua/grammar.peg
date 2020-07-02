@@ -41,7 +41,7 @@ atom_exp    <~  `nil` / `false` / `true` / NUMBER / STRING / function /
                 "..." / prefiexp / tableconstructor
 
 prefiatom   <~ ID / '(' exp ')'
-prefiexp    <- ( functioncall / prefiatom ) sufiexp*
+prefiexp    <~ ( functioncall / prefiatom ) sufiexp*
 
 functioncall <- prefiatom ( sufiexp* (args / ':' ID args) )+
 
@@ -62,7 +62,7 @@ FIELDSEP    <- ',' / ';'
 ESC         <-  '\\' ('a' / 'b' / 'f' / 'n' / 'r' / 't' / 'v' / '\\' / "'" / '"' / '\n')
 STRING      <- '"' (ESC / [^"])* '"' / "'"  (ESC / [^'])* "'" / LONG_STR
 
-fragment EQUALS      <-  '='*
+EQUALS      <-  '='*
 OPEN_STR    <-  '[' EQUALS '['
 CLOSE_STR   <-  ']' EQUALS ']'
 CLOSE_EQ    <-  { CLOSE_STR ^init_eq , check_eq }

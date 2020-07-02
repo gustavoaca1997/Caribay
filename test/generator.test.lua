@@ -12,6 +12,18 @@ context("Generator", function()
 
     context("generates a parser from a grammar with", function()
         context("a rule with", function()
+            test("a lexical repetition of character class", function()
+                local src = 'ALPHA_NUM <- [0-9a-zA-Z]+'
+                local parser = generator.gen(src)
+                assert.are.same({ tag = 'ALPHA_NUM', pos = 1, '8aBC3' }, parser:match('8aBC3'))   
+            end)
+
+            test("a syntactic repetition of character class", function()
+                local src = 'alpha_num <- [0-9a-zA-Z]+'
+                local parser = generator.gen(src)
+                assert.are.same({ tag = 'alpha_num', pos = 1, '8', 'a', 'B', 'C', '3' }, parser:match('8aBC3'))   
+            end)
+
             test("a captured literal", function()
                 local src = 's <- "a"'
                 local parser = generator.gen(src)
@@ -603,6 +615,20 @@ context("Generator", function()
             }
             assert.same_ast(expected, parser:match(input))
         end)
+
+        test("a syntactic named group", function()
+            local src = [[
+                s <- { "="* : equals} ^equals
+            ]]
+            local parser = generator.gen(src)
+            assert.same_ast({ 
+                tag = "s", 
+                { tag = "token", "=" }, 
+                { tag = "token", "=" },
+                { tag = "token", "=" },
+                { tag = "token", "=" },
+            }, parser:match("===="))
+        end)
        
     end)
 
@@ -634,11 +660,12 @@ context("Generator", function()
         f:close()
 
         -- Case 1:
-        f = assert(io.open("./test/expected/lua/examples/example1.lua", "r"))
-        local input = f:read("a")
+        local input = [[
+            _x_10 = 10
+            return _x_10;
+        ]]
         local expected = require"test.expected.lua.examples.output1"
         local ast, err, pos = parser:match(input)
-        f:close()
         assert.same_ast(expected, ast)
 
         -- Case 2:
@@ -672,6 +699,11 @@ context("Generator", function()
         ast, err, pos = parser:match(input)
         if not ast then print('abcdef', re.calcline(input, pos)) end
         assert.is.truthy(parser:match(input))
+
+        -- Case 4:
+        input = [[x = 4 + x/2]]
+        expected = require"test.expected.lua.examples.output2"
+        assert.same_ast(expected, parser:match(input))
 
         -- Other cases:
         local folder_name = [[./test/lua5.1-tests/]]
