@@ -54,23 +54,25 @@ parlist     <- namelist (',' '...')? / '...'
 tableconstructor    <-  '{' fieldlist? '}'
 fieldlist   <-  field (FIELDSEP field)* FIELDSEP?
 field       <- '[' exp ']' '=' exp / ID '=' exp / exp
-FIELDSEP    <- ',' / ';'
 
 ID_START    <- [a-zA-Z_]+
 
-STRING      <- '"' ('\\\"' / [^"])* '"' / "'"  ("\\\'" / [^'])* "'" / LONG_STR
+FIELDSEP    <- ',' / ';'
+
+ESC         <-  '\\' ('a' / 'b' / 'f' / 'n' / 'r' / 't' / 'v' / '\\' / "'" / '"' / '\n')
+STRING      <- '"' (ESC / [^"])* '"' / "'"  (ESC / [^'])* "'" / LONG_STR
 
 fragment EQUALS      <-  '='*
 OPEN_STR    <-  '[' EQUALS '['
 CLOSE_STR   <-  ']' EQUALS ']'
-CLOSE_EQ    <-  { CLOSE_STR =init_eq , check_eq }
+CLOSE_EQ    <-  { CLOSE_STR ^init_eq , check_eq }
 LONG_STR    <-  { OPEN_STR : init_eq } '\n'? (!CLOSE_EQ .)* CLOSE_STR
 
-NUMBER      <- %d+ 'e' '-'? %d+ / %d+ ('.' %d+)?
+NUMBER      <- (%d* '.' %d+ / %d+ '.' / %d+) (('e' / 'E') '-'? %d+)?
 COMP_OP     <-  '<=' / '>=' / '~=' / '==' / '<' / '>'
 TERM_OP     <- '+' / '-'
 FACTOR_OP   <- '*' / '/' / '%'
 UNARY_OP    <- `not` / '#' / '-'
 
-COMMENT     <- '--' ('[[' (!']]' . )* ']]' / [^%nl]*)
+COMMENT     <- '--' (LONG_STR / [^%nl]*)
 SP_COMMENT  <- '#' [^%nl]*

@@ -283,7 +283,7 @@ context("Parser", function ( )
                         }
                     }
                 }
-                assert.are.same(expected, parser.match(input))
+                assert.are.same(expected[1][2][2], parser.match(input)[1][2][2])
             end)
 
             test("empty-character I", function()
@@ -851,18 +851,26 @@ context("Parser", function ( )
             assert.contains_error("Arrow expected", parser.match, input)
         end)
 
-        test("'Lexical identifier expected' on bad written fragment annotation I", function()
+        test("'Annnotated symbol expected' on bad written fragment annotation I", function()
             local input = [[
                 type <- "number" / "string" / VECTOR
-                fragment vector <- "vector" ([1-9][0-9]*)?
+                fragment <- "vector" ([1-9][0-9]*)?
             ]]
-            assert.contains_error("Lexical identifier expected", parser.match, input)
+            assert.contains_error("Annotated symbol expected", parser.match, input)
         end)
 
-        test("'Lexical identifier expected' on bad written fragment annotation II", function()
+        test("'Annotated symbol expected' on bad written fragment annotation II", function()
             local input = [[
                 type <- "number" / "string" / VECTOR
-                fragment keyword vector <- "vector" ([1-9][0-9]*)?
+                fragment keyword <- "vector" ([1-9][0-9]*)?
+            ]]
+            assert.contains_error("Annotated symbol expected", parser.match, input)
+        end)
+
+        test("'Lexical identifier expected' on bad written keyword annotation", function()
+            local input = [[
+                type <- "number" / "string" / VECTOR
+                keyword vector <- "vector" ([1-9][0-9]*)?
             ]]
             assert.contains_error("Lexical identifier expected", parser.match, input)
         end)
@@ -870,7 +878,7 @@ context("Parser", function ( )
         test("'Lexical identifier expected' on bad written keyword annotation", function()
             local input = [[
                 type <- "number" / "string" / VECTOR
-                keyword vector <- "vector" ([1-9][0-9]*)?
+                keyword <- "vector" ([1-9][0-9]*)?
             ]]
             assert.contains_error("Lexical identifier expected", parser.match, input)
         end)
@@ -921,10 +929,25 @@ context("Parser", function ( )
             assert.contains_error("Valid expression expected", parser.match, input)
         end)
 
-        -- test("'Missing comma' on bad written action", function()
-        --     local input = 's <- { "bla" func }'
-        --     assert.contains_error("Missing comma", parser.match, input)
-        -- end)
+        test("back expression bad written I", function()
+            local input = 's <- ^^count'
+            assert.contains_error('Valid identifier expected', parser.match, input)
+        end)
+
+        test("back expression bad written I", function()
+            local input = 's <- a ^'
+            assert.contains_error('Valid identifier expected', parser.match, input)
+        end)
+
+        test("action bad written", function()
+            local input = 's <- { "a" , }'
+            assert.contains_error('Valid identifier expected', parser.match, input)
+        end)
+
+        test("group bad written", function()
+            local input = 's <- { "a" : }'
+            assert.contains_error('Valid identifier expected', parser.match, input)
+        end)
 
         test("'Valid identifier expected' on bad written action I", function()
             local input = 's<-{"bla",}'
@@ -1064,9 +1087,5 @@ context("Parser", function ( )
             local input = 's <- [xyz0-'
             assert.contains_error("Right bound of range expected", parser.match, input)
         end)
-
-        -- pending("'Missing annotation' on bad written annotation", function()
-
-        -- end)
     end)
 end)

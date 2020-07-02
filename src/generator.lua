@@ -151,7 +151,7 @@ local function gen_auxiliars()
     -- Generate a 'SKIP' rule
     if not M.grammar['SKIP'] then
         if M.grammar['COMMENT'] then
-            M.grammar['SKIP'] = (lp.space + lp.V'COMMENT')^0
+            M.grammar['SKIP'] = (lp.space + lp.V'COMMENT' / 0)^0
         else
             M.grammar['SKIP'] = lp.space^0
         end
@@ -174,6 +174,7 @@ local function gen_auxiliars()
     -- Generate 'ID' rule
     local capture = lp.C( lp.V'ID_START' * lp.V'ID_END'^-1 )
     M.grammar['ID'] = lp.Cmt( lp.Ct( from_tag('ID') * capture ), dont_match_keyword )
+
 end
 
 local function throw_error(err, sym)

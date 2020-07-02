@@ -136,13 +136,10 @@ context("Generator", function()
                 local src = [[
                     s <- "\\t" "a"
                 ]]
-                print(src)
                 local parser = generator.gen(src)
                 local input = [[
                     \ta
                 ]]
-                local ast, err, pos = parser:match(input)
-                if not ast then print('ah', input:sub(pos, pos), re.calcline(input, pos)) end
                 assert.is.truthy(parser:match(input))
             end)
 
@@ -167,7 +164,7 @@ context("Generator", function()
             test("empty token", function()
                 local src = [[
                     s <- A
-                    fragment A <- 'a' (A / %e) 'b'
+                    A <- 'a' (A / %e) 'b'
                 ]]
                 local parser = generator.gen(src)
 
@@ -307,8 +304,8 @@ context("Generator", function()
             -- Context-sensitive language {a^n b^n c^n : n >= 1}
             local src = [[
                 s <- &(A 'c') 'a'+ B
-                fragment A <- 'a' A? 'b'
-                fragment B <- 'b' B? 'c'
+                A <- 'a' A? 'b'
+                B <- 'b' B? 'c'
             ]]
             local parser = generator.gen(src)
 
@@ -325,8 +322,8 @@ context("Generator", function()
             local src = [[
                 list <- NUMBER+
                 NUMBER <- INT / FLOAT
-                fragment INT <- %d+ !'.'
-                fragment FLOAT <- %d+ '.' %d+
+                INT <- %d+ !'.'
+                FLOAT <- %d+ '.' %d+
             ]]
             local parser = generator.gen(src)
 
@@ -374,15 +371,16 @@ context("Generator", function()
 
         test("lexical repetition of bits", function()
             local src = [[
-                fragment BIT <- '0' / '1'
                 rand_bits <- BITS
+                BIT <- '0' / '1'
                 BITS <- BIT+
             ]]
             local parser = generator.gen(src)
 
             local expected = {
-                tag = 'rand_bits',
-                { tag = 'BITS', '00101'}
+                tag = 'rand_bits', {
+                    tag = 'BITS', '00101',
+                },
             }
             assert.same_ast(expected, parser:match('00101'))
             assert.same_ast(expected, parser:match('   00101 '))
@@ -513,6 +511,28 @@ context("Generator", function()
             assert.are.same(expected, parser:match(input))
         end)
 
+        test('syntactic fragment', function()
+            local src = [[
+                assign <- ID '=' number
+                fragment number <- FLOAT / INT
+                INT <- %d+
+                FLOAT <- %d+ '.' %d+
+            ]]
+            local parser = generator.gen(src)
+
+            assert.same_ast({ 
+                tag = 'assign', 
+                { tag = 'ID', 'x' }, 
+                { tag = 'INT', '255' } 
+            }, parser:match[[  x  = 255 ]])
+
+            assert.same_ast({
+                tag = 'assign',
+                { tag = 'ID', 'a_2' },
+                { tag = 'FLOAT', '3.1416' },
+            }, parser:match[[a_2        =3.1416 ]])
+        end)
+
         test("fragment keyword and its own SKIP rule", function()
             local src = [[
                 s <- (init / idx)+
@@ -563,7 +583,7 @@ context("Generator", function()
         test("user defined `COMMENT`", function()
             local src = [[
                 s <- NUMBER (',' NUMBER)*
-                fragment COMMENT <- '--' [^%nl]*
+                COMMENT <- '--' [^%nl]*
                 NUMBER <- %d+
             ]]
             local parser = generator.gen(src)
@@ -581,35 +601,9 @@ context("Generator", function()
                 { tag = 'NUMBER', '7' },
                 { tag = 'NUMBER', '9' },
             }
-            -- local ast, err, pos = parser:match(input)
-            -- if not ast then
-            --     print(err, re.calcline(input, pos))
-            -- end
             assert.same_ast(expected, parser:match(input))
         end)
-
-        pending("back reference", function()
-
-        end)
-
-        pending("semantic action", function()
-
-        end)
-
-        pending("named group", function()
-
-        end)
-    end)
-
-    pending("generates a parser from expression grammar", function()
-        local src = [[
-            program <-  (cmd / exp)*
-            cmd     <-  ID assign_sign exp
-            exp     <-  term ('+' term)*
-            term    <~  factor ('*' factor)*
-            factor  <~  ID / NUMBER / '(' exp ')'
-            NUMBER  <-  %d+ ('.' %d+)?
-        ]]
+       
     end)
 
     test("generates a parser from JSON grammar", function()
@@ -705,19 +699,6 @@ context("Generator", function()
             assert.has_error(fn, "rule 'star' undefined in given grammar")
         end)
 
-        test("'Trying to use a not fragment lexical element in a lexical rule'", function()
-            local src = [[
-                s <- X X
-                X <- LPAR 'x' RPAR
-                LPAR <- '('
-                RPAR <- ')'
-            ]]
-            local fn = function()
-                generator.gen(src)
-            end
-            assert.has_error(fn, "Rule 2: Trying to use a not fragment lexical element in a lexical rule")
-        end)
-
         test("'Trying to use a syntactic element in a lexical rule'", function ( )
             local src = [[
                 S <- s
@@ -726,19 +707,7 @@ context("Generator", function()
             local fn = function()
                 generator.gen(src)
             end
-            assert.has_error(fn, "Rule 1: Trying to use a syntactic element in a lexical rule")
-        end)
-
-        pending("back expression bad written", function()
-
-        end)
-
-        pending("action bad written", function()
-
-        end)
-
-        pending("group bad written", function()
-
+            assert.has_error(fn, "Rule S: Trying to use a syntactic element in a lexical rule")
         end)
     end)
 
