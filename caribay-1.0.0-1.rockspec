@@ -2,7 +2,7 @@ package = "Caribay"
 version = "1.0.0-1"
 source = {
    url = "git://github.com/gustavoaca1997/Caribay",
-   tag = "v1.0.0",
+   tag = "v1.0.1",
 }
 description = {
    summary = "A PEG parser generator",
