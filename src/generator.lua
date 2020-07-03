@@ -46,7 +46,13 @@ end
 ----------------------------------------------------------------------------
 
 -- Symbol class
-local Symbol = {}
+local Symbol = {
+    type = 'syn',
+    is_fragment = false,
+    is_keyword = false,
+    is_skippable = false,
+    rule_no = 0,
+}
 
 function Symbol:is_lex()
     return self.type == 'lex'
@@ -56,8 +62,15 @@ function Symbol:is_syn()
     return self.type == 'syn'
 end
 
-function Symbol:new(obj)
-    obj = obj or {}
+function Symbol:new(sym_str, type, is_fragment, is_keyword, is_skippable, rule_no)
+    local obj = {
+        sym_str = sym_str,
+        type = type,
+        is_fragment = is_fragment,
+        is_keyword = is_keyword,
+        is_skippable = is_skippable,
+        rule_no = rule_no,
+    }
     self.__index = self
     setmetatable(obj, self)
     return obj
@@ -72,30 +85,10 @@ local function get_syms (ast)
         info about their types and annotations.
     ]]
     local syms = {
-        SKIP = Symbol:new{
-            type = 'syn',
-            is_fragment = true,
-            is_keyword = false,
-            sym_str = 'SKIP',
-        },
-        ID_START = Symbol:new{
-            type = 'lex',
-            is_fragment = true,
-            is_keyword = false,
-            sym_str = 'ID_START',
-        },
-        ID_END = Symbol:new{
-            type = 'lex',
-            is_fragment = true,
-            is_keyword = false,
-            sym_str = 'ID_END',
-        },
-        ID = Symbol:new{
-            type = 'lex',
-            is_fragment = false,
-            is_keyword = false,
-            sym_str = 'ID',
-        }
+        SKIP = Symbol:new('SKIP', 'syn', true),
+        ID_START = Symbol:new('ID_START', 'lex', true),
+        ID_END = Symbol:new('ID_END', 'lex', true),
+        ID = Symbol:new('ID', 'lex'),
     }
 
     for idx, rule in ipairs(ast) do
@@ -112,14 +105,9 @@ local function get_syms (ast)
         end
 
         -- Save rule
-        syms[sym_str] = syms[sym_str] or Symbol:new{ -- `or` mainly for keeping auxiliar entries intact
-            type = type,
-            is_fragment = is_fragment,
-            is_keyword = is_keyword,
-            is_skippable = is_skippable,
-            rule_no = idx,
-            sym_str = sym_str,
-        }
+        syms[sym_str] = syms[sym_str] or 
+                        Symbol:new(sym_str, type, is_fragment, 
+                                is_keyword, is_skippable, idx)
         
     end
     M.syms = syms
