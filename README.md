@@ -3,6 +3,12 @@ A PEG (Parsing Expression Grammar) Parser Generator built with LPeg(Label). The 
 
 Caribay makes easier to parse lexical symbols, comments, identifiers and keywords.
 
+## Installation
+You can install Caribay using [Luarocks](https://luarocks.org/):
+```bash
+luarocks install caribay
+```
+
 ## Usage
 You need to _require_ the module _src.generator_:
 ```lua
