@@ -10,7 +10,8 @@ description = {
        A PEG (Parsing Expression Grammar) Parser Generator built with LPeg(Label). The generated parser captures a generic AST (Abstract Syntactic Tree).
        Caribay makes easier to parse lexical symbols, comments, identifiers and keywords.
     ]],
-   license = "MIT"
+   license = "MIT",
+   homepage = "https://github.com/gustavoaca1997/Caribay",
 }
 dependencies = {
    "lua >= 5.1, < 5.4",
