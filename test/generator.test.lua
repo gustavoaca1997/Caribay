@@ -13,15 +13,14 @@ context("Generator", function()
     context("generates a parser from a grammar with", function()
         context("a rule with", function()
             test("a lexical repetition of character class", function()
-                local src = 'ALPHA_NUM <- [0-9a-zA-Z]+'
-                local parser = generator.gen(src)
-                assert.are.same({ tag = 'ALPHA_NUM', pos = 1, '8aBC3' }, parser:match('8aBC3'))   
-            end)
-
-            test("a syntactic repetition of character class", function()
-                local src = 'alpha_num <- [0-9a-zA-Z]+'
-                local parser = generator.gen(src)
-                assert.are.same({ tag = 'alpha_num', pos = 1, '8', 'a', 'B', 'C', '3' }, parser:match('8aBC3'))   
+                local src1 = 'ALPHA_NUM <- [0-9a-zA-Z]+'
+                local parser1 = generator.gen(src1)
+                
+                local src2 = 'alpha_num <- [0-9a-zA-Z]+'
+                local parser2 = generator.gen(src2)
+                
+                assert.are.same({ tag = 'ALPHA_NUM', pos = 1, '8aBC3' }, parser1:match('8aBC3'))   
+                assert.are.same({ tag = 'alpha_num', pos = 1, '8', 'a', 'B', 'C', '3' }, parser2:match('8aBC3'))   
             end)
 
             test("a captured literal", function()
