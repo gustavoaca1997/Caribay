@@ -57,13 +57,14 @@ Caribay serves some useful predefined rules, which are overwritten if the user d
 #### SKIP
 It is used to skip a pattern between lexical symbols. By default it is defined as follows:
 ```peg
-SKIP <- ' '*
+SKIP <- (' ' / '\t' / '\n' / '\f' / '\r')*
 ```
 If the user defines a `COMMENT` rule, `SKIP` is defined as follows:
 ```peg
-SKIP <- (' ' / COMMENT)*
+SKIP <- (' ' / '\t' / '\n' / '\f' / '\r' / COMMENT)*
 ```
 
+_Note: Actually, instead of `' ' / '\t' / '\n' / '\f' / '\r'`, it uses `lpeg.space`, which uses C [`isspace`](http://www.cplusplus.com/reference/cctype/isspace/)._
 #### ID
 The _ID_ rule is defined by default by this PEG:
 ```peg
