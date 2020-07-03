@@ -1,6 +1,6 @@
 local re = require"relabel"
 local lp = require"lpeglabel"
-local parser = require"parser"
+local parser = require"caribay.parser"
 
 lp.locale(lp) -- adds locale entries into 'lpeglabel' table
 ----------------------------------------------------------------------------

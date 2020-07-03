@@ -4,10 +4,10 @@ assert:register("assertion", "same_ast", assertions.same_ast)
 
 context("Generator", function()
     setup(function()
-        generator = require"src.generator"
+        generator = require"caribay.generator"
         re = require"relabel"
         lfs = require"lfs"
-        src_parser = require"src.parser"
+        src_parser = require"caribay.parser"
     end)
 
     context("generates a parser from a grammar with", function()

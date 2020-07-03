@@ -6,7 +6,7 @@ Caribay makes easier to parse lexical symbols, comments, identifiers and keyword
 ## Usage
 You need to _require_ the module _src.generator_:
 ```lua
-local generator = require"generator"
+local generator = require"caribay.generator"
 ```
 then you call the `gen` function passing a PEG as argument to generate an LPegLabel parser, which has a method `match` for matching:
 ```lua
