@@ -2,6 +2,7 @@ local re = require"relabel"
 local lp = require"lpeglabel"
 
 local M = {}
+local literals = {} -- Literals and keywords found on the grammar
 
 local peg_grammar = [=[
     S       <- [%s%nl]* {| rule+ |} !.
@@ -135,7 +136,9 @@ local function parse_esc(str)
 end
 
 local function concat_chars(parts)
-    return table.concat(parts)
+    local literal_str = table.concat(parts)
+    literals[literal_str] = true
+    return literal_str
 end
 
 local peg_parser = re.compile(peg_grammar, {
@@ -146,6 +149,7 @@ local peg_parser = re.compile(peg_grammar, {
 })
 
 function M.match(inp)
+    literals = {}
     local ast, errLabel, pos = peg_parser:match(inp)
     if not ast then
         local ln, col = re.calcline(inp, pos)
@@ -154,7 +158,7 @@ function M.match(inp)
             suffErrMsg
         error(errMsg)
     end
-    return ast
+    return ast, literals
 end
 
 function M.show_ast(ast, tabs)

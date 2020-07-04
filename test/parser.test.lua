@@ -11,7 +11,7 @@ context("Parser", function ( )
     context("matches", function()
         context("a single trivial rule with", function()
             test("a literal", function()
-                local ast = parser.match('s <- "a"')
+                local ast, literals = parser.match('s <- "a"')
                 local expected = {
                     {
                         tag = 'rule',
@@ -26,10 +26,11 @@ context("Parser", function ( )
                     }
                 }
                 assert.are.same(expected, ast)
+                assert.are.same({a = true}, literals)
             end)
 
             test("a literal", function()
-                local ast = parser.match("s <- 'a'")
+                local ast, literals = parser.match("s <- 'a'")
                 local expected = {
                     {
                         tag = 'rule',
@@ -42,10 +43,11 @@ context("Parser", function ( )
                     }
                 }
                 assert.are.same(expected, ast)
+                assert.are.same({a = true}, literals)
             end)
 
             test("a keyword", function()
-                local ast = parser.match('s <- `a`')
+                local ast, literals = parser.match('s <- `a`')
                 local expected = {
                     {
                         tag = 'rule',
@@ -58,6 +60,7 @@ context("Parser", function ( )
                     }
                 }
                 assert.are.same(expected, ast)
+                assert.are.same({a = true}, literals)
             end)
 
             test("spaces at the beginning", function()
@@ -92,8 +95,9 @@ context("Parser", function ( )
                         }
                     }
                 }
-                local output, p, n = parser.match(input)
+                local output, literals = parser.match(input)
                 assert.are.same(expected, output)
+                assert.are.same({a = true, b = true}, literals)
             end)
     
             test("a sequence", function() 
@@ -139,7 +143,9 @@ context("Parser", function ( )
                         }
                     }
                 }
-                assert.are.same(expected, parser.match(input))
+                local ast, literals = parser.match(input)
+                assert.are.same(expected, ast)
+                assert.are.same({a = true, b = true, c = true}, literals)
             end)
     
             test("Kleen star", function()
@@ -156,7 +162,9 @@ context("Parser", function ( )
                         }
                     }
                 }
-                assert.are.same(expected, parser.match(input))
+                local ast, literals = parser.match(input)
+                assert.are.same(expected, ast)
+                assert.are.same({a = true}, literals)
             end)
     
             test("repetition", function()
@@ -437,8 +445,9 @@ context("Parser", function ( )
                     }
                 }
             }
-            local output = parser.match(input)
+            local output, literals = parser.match(input)
             assert.are.same(expected, output)
+            assert.are.same({['+'] = true}, literals)
         end)
 
         test("fragment annotation", function()
@@ -499,7 +508,9 @@ context("Parser", function ( )
                     }
                 }
             }
-            assert.are.same(expected, parser.match(input))
+            local ast, literals = parser.match(input)
+            assert.are.same(expected, ast)
+            assert.are.same({['.'] = true, ['0x'] = true}, literals)
         end)
 
         test("syntactic symbol with 'fragment' as preffix", function()
@@ -526,7 +537,9 @@ context("Parser", function ( )
                     }
                 }
             }
-            assert.are.same(expected, parser.match(input))
+            local ast, literals = parser.match(input)
+            assert.are.same(expected, ast)
+            assert.are.same({['(|'] = true}, literals)
         end)
 
         test("keyword annotation", function()
@@ -566,7 +579,9 @@ context("Parser", function ( )
                     }
                 }
             }
-            assert.are.same(expected, parser.match(input))
+            local ast, literals = parser.match(input)
+            assert.are.same(expected, ast)
+            assert.are.same({number = true, vector = true, string = true}, literals)
         end)
 
         test("keyword and fragment annotation", function()
@@ -607,7 +622,9 @@ context("Parser", function ( )
                     }
                 }
             }
-            assert.are.same(expected, parser.match(input))
+            local ast, literals = parser.match(input)
+            assert.are.same(expected, ast)
+            assert.are.same({number = true, vector = true, string = true}, literals)
         end)
 
         test("a JSON grammar", function()
@@ -764,7 +781,9 @@ context("Parser", function ( )
                     },
                 }
             }
-            assert.are.same(expected, parser.match(input))
+            local ast, literals = parser.match(input)
+            assert.are.same(expected, ast)
+            assert.are.same({[','] = true, ['.'] = true, [':'] = true}, literals)
         end)
 
         test("scaped quotes I", function()
@@ -776,7 +795,9 @@ context("Parser", function ( )
                     { tag = 'literal', captured = 'true', '"' }
                 },
             }
-            assert.are.same(expected, parser.match(input))
+            local ast, literals = parser.match(input)
+            assert.are.same(expected, ast)
+            assert.are.same({['"'] = true}, literals)
         end)
     
         test("scaped quotes II", function()
@@ -804,7 +825,9 @@ context("Parser", function ( )
                     }
                 }
             }
-            assert.are.same(expected, parser.match(input))
+            local ast, literals = parser.match(input)
+            assert.are.same(expected, ast)
+            assert.are.same({["'"] = true, ['"'] = true}, literals)
         end)
 
         test("scaped quotes II", function()

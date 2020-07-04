@@ -18,6 +18,7 @@ function Generator:new(actions)
         keywords = {},
         syms = {},
         grammar = {},
+        unique_literals = {},
     }
     self.__index = self
     setmetatable(obj, self)
