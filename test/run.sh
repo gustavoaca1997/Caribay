@@ -1,0 +1,1 @@
+reset && sudo luarocks make && busted test/generator.test.lua
