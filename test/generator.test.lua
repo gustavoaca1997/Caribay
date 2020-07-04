@@ -770,7 +770,9 @@ context("Generator", function()
 
     test("ensures unique token prefix", function()
         local src = [[
-            s <- (`do` / `double`) ("=" / "==") ("<" / "<=") (">" / ">=") (`int` / `int16` / `int32` / `int64`)
+            s <- (`do` / `double`) ("=" / "==") ("<" / "<=") (GT / ">=") (INT / `int16` / `int32` / `int64`)
+            INT <- `int`
+            GT <- '>'
         ]]
         local parser = generator.gen(src)
 

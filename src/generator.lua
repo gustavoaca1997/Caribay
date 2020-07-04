@@ -92,8 +92,12 @@ function Generator:dont_match_keyword(subject, pos, ast_node)
     end
 end
 
-function Generator:literal_patt(literal_str, sym)
-    if sym:is_syn() then
+function Generator:unique_lex(literal_str, sym, is_only_child)
+    --[[
+        Ensures unique token prefix property for the token
+        `literal_str`.
+    ]]
+    if is_only_child or sym:is_syn() then
         return self.literals_patterns[literal_str]
     else
         return lp.P(literal_str)
@@ -171,13 +175,16 @@ function Generator:get_syms (ast)
     return self.syms
 end
 
-function Generator:to_lpeg(node, sym)
+function Generator:to_lpeg(node, sym, is_only_child)
     --[[
         Generates LPegLabel expression from the
         ast node and the lhs of the current rule.
         It uses the table `generator`.
+
+        If `is_unique` is true, this node is 
+        considered as the only child of the parent node.
     ]]
-    return generator[node.tag](self, node, sym)
+    return generator[node.tag](self, node, sym, is_only_child)
 end
 
 local function from_tag(tag)
@@ -249,7 +256,8 @@ generator['rule'] = function(self, node)
     local sym_str = node[1][1]  -- Name of the symbol
     local sym = self.syms[sym_str] -- Symbol 'object'
     local rhs = node[2]
-    local rhs_lpeg = self:to_lpeg(rhs, sym)
+    local is_only_child = rhs.tag == 'literal' or rhs.tag == 'keyword'
+    local rhs_lpeg = self:to_lpeg(rhs, sym, is_only_child)
 
     if sym.is_keyword then
         rhs_lpeg = to_keyword(rhs_lpeg)
@@ -333,9 +341,9 @@ generator['and_exp'] = function(self, node, sym)
     return #exp_lpeg
 end
 
-generator['literal'] = function(self, node, sym)
+generator['literal'] = function(self, node, sym, is_only_child)
     local literal_str = node[1]
-    local literal_lpeg = self:literal_patt(literal_str, sym)
+    local literal_lpeg = self:unique_lex(literal_str, sym, is_only_child)
 
     if sym:is_lex() or not node.captured then
         return add_SKIP(literal_lpeg, sym)
@@ -344,9 +352,9 @@ generator['literal'] = function(self, node, sym)
     end
 end
 
-generator['keyword'] = function(self, node, sym)
+generator['keyword'] = function(self, node, sym, is_only_child)
     local literal_str = node[1]
-    local literal_lpeg = self:literal_patt(literal_str, sym)
+    local literal_lpeg = self:unique_lex(literal_str, sym, is_only_child)
 
     -- Keep track of kwywords
     self.keywords[literal_str] = true
