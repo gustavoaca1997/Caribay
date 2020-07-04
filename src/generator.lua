@@ -9,17 +9,54 @@ lp.locale(lp) -- adds locale entries into 'lpeglabel' table
 -- Module to export
 local M = {}
 
+function M.unique_token_prefix(literals_map)
+    local literals_arr = {}     -- ordered array with the unique literals.
+    local literals_patterns = {}  -- map of not predicates of array of tokens for which they are prefixes.
+
+    for literal_str in pairs(literals_map) do 
+        table.insert(literals_arr, literal_str) 
+        literals_patterns[literal_str] = lp.P(literal_str)
+    end
+    table.sort(literals_arr)
+
+    --[[
+        For each token `literal_str`, if it's a prefix of a token `literal_str_1`,
+        then add `literal_str_1` to the array of `literal_str`.
+    ]]
+    for idx, literal_str in ipairs(literals_arr) do
+        for jdx = idx+1, #literals_arr do
+
+            local literal_str_1 = literals_arr[jdx]
+
+            if literal_str_1:find(literal_str, 1, true) then
+                literals_patterns[literal_str] = literals_patterns[literal_str] - lp.P(literal_str_1)
+            else
+                break
+            end
+        end
+    end
+
+    return literals_patterns
+end
+
+----------------------------------------------------------------------------
+----------------------------------------------------------------------------
+
 -- Generator class
 local Generator = {}
 
-function Generator:new(actions)
+function Generator:new(actions, literals_map)
+
+    -- Create new object
     local obj = {
         actions = actions or {},
         keywords = {},
         syms = {},
         grammar = {},
-        unique_literals = {},
+        literals_patterns = M.unique_token_prefix(literals_map),
     }
+
+    -- Inherit from `Generator`
     self.__index = self
     setmetatable(obj, self)
     return obj
@@ -52,6 +89,14 @@ function Generator:dont_match_keyword(subject, pos, ast_node)
         return false
     else
         return true, ast_node
+    end
+end
+
+function Generator:literal_patt(literal_str, sym)
+    if sym:is_syn() then
+        return self.literals_patterns[literal_str]
+    else
+        return lp.P(literal_str)
     end
 end
 
@@ -289,22 +334,24 @@ generator['and_exp'] = function(self, node, sym)
 end
 
 generator['literal'] = function(self, node, sym)
-    local literal = node[1]
+    local literal_str = node[1]
+    local literal_lpeg = self:literal_patt(literal_str, sym)
 
     if sym:is_lex() or not node.captured then
-        return add_SKIP(lp.P(literal), sym)
+        return add_SKIP(literal_lpeg, sym)
     else
-        return add_SKIP(lp.Ct( from_tag('token') * lp.C(literal) ), sym)
+        return add_SKIP(lp.Ct( from_tag('token') * lp.C(literal_lpeg) ), sym)
     end
 end
 
 generator['keyword'] = function(self, node, sym)
-    local literal = node[1]
+    local literal_str = node[1]
+    local literal_lpeg = self:literal_patt(literal_str, sym)
 
     -- Keep track of kwywords
-    self.keywords[literal] = true
+    self.keywords[literal_str] = true
 
-    local pattern = to_keyword(lp.P(literal))
+    local pattern = to_keyword(literal_lpeg)
     if sym:is_syn() then
         pattern = lp.Ct( from_tag('token') * lp.C(pattern) )
     end
@@ -343,8 +390,8 @@ end
 ----------------------------------------------------------------------------
 
 M.gen = function (input, actions)
-    local ast = parser.match(input)
-    local generator = Generator:new(actions)
+    local ast, literals = parser.match(input)
+    local generator = Generator:new(actions, literals)
     generator:get_syms(ast)
 
     for _, rule in ipairs(ast) do

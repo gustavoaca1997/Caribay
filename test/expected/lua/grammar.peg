@@ -31,14 +31,19 @@ explist     <-  exp (',' exp)*
 
 exp         <-  conj (`or` conj)*
 conj        <~  comp (`and` comp)*
-comp        <~  conc (COMP_OP conc)*
+comp        <~  conc (comp_op conc)*
 conc        <~  arit ('..' arit)*
-arit        <~  term (TERM_OP term)*
-term        <~  factor (FACTOR_OP factor)*
+arit        <~  term (term_op term)*
+term        <~  factor (factor_op factor)*
 factor      <~  unary ('^' unary)*
-unary       <~  UNARY_OP* atom_exp
+unary       <~  unary_op* atom_exp
 atom_exp    <~  `nil` / `false` / `true` / NUMBER / STRING / function /
                 "..." / prefiexp / tableconstructor
+
+comp_op     <-  "<" / ">" / "<=" / ">=" / "~=" / "=="
+term_op     <- "+" / "-"
+factor_op   <- "*" / "/" / "%"
+unary_op    <- `not` / "#" / "-"
 
 prefiatom   <~ ID / '(' exp ')'
 prefiexp    <~ ( functioncall / prefiatom ) sufiexp*
@@ -52,12 +57,11 @@ funcbody    <- '(' parlist? ')' block `end`
 parlist     <- namelist (',' '...')? / '...'
 
 tableconstructor    <-  '{' fieldlist? '}'
-fieldlist   <-  field (FIELDSEP field)* FIELDSEP?
+fieldlist   <-  field (fieldsep field)* fieldsep?
 field       <- '[' exp ']' '=' exp / ID '=' exp / exp
+fieldsep    <- ',' / ';'
 
 ID_START    <- [a-zA-Z_]+
-
-FIELDSEP    <- ',' / ';'
 
 ESC         <-  '\\' ('a' / 'b' / 'f' / 'n' / 'r' / 't' / 'v' / '\\' / "'" / '"' / '\n')
 STRING      <- '"' (ESC / [^"])* '"' / "'"  (ESC / [^'])* "'" / LONG_STR
@@ -69,10 +73,6 @@ CLOSE_EQ    <-  { CLOSE_STR ^init_eq , check_eq }
 LONG_STR    <-  { OPEN_STR : init_eq } '\n'? (!CLOSE_EQ .)* CLOSE_STR
 
 NUMBER      <- (%d* '.' %d+ / %d+ '.' / %d+) (('e' / 'E') '-'? %d+)?
-COMP_OP     <-  '<=' / '>=' / '~=' / '==' / '<' / '>'
-TERM_OP     <- '+' / '-'
-FACTOR_OP   <- '*' / '/' / '%'
-UNARY_OP    <- `not` / '#' / '-'
 
 COMMENT     <- '--' (LONG_STR / [^%nl]*)
 SP_COMMENT  <- '#' [^%nl]*

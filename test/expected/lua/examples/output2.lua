@@ -18,11 +18,11 @@ return {
                     {
                         tag = 'arit',
                         { tag = 'NUMBER', '4' },
-                        { tag = 'TERM_OP', '+' },
+                        { tag = 'term_op', { tag = 'token', '+' } },
                         {
                             tag = 'term',
                             { tag = 'ID', 'x' },
-                            { tag = 'FACTOR_OP', '/' },
+                            { tag = 'factor_op', { tag = 'token', '/' } },
                             { tag = 'NUMBER', '2' }
                         }
                     }
