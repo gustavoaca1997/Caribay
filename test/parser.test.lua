@@ -317,6 +317,38 @@ context("Parser", function ( )
                 }
                 assert.are.same(expected, parser.match(input))
             end)
+
+            test("empty-character III", function()
+                local input = "s <- '' 'a'"
+                local expected = {
+                    {
+                        tag = 'rule',
+                        { tag = 'syn_sym', 's' },
+                        {
+                            tag = 'seq_exp',
+                            { tag = 'empty', '%e' },
+                            { tag = 'literal', 'a' },
+                        }
+                    }
+                }
+                assert.are.same(expected[1][2][1], parser.match(input)[1][2][1])
+            end)
+
+            test("empty-character IV", function()
+                local input = 's <- "" "a"'
+                local expected = {
+                    {
+                        tag = 'rule',
+                        { tag = 'syn_sym', 's' },
+                        {
+                            tag = 'seq_exp',
+                            { tag = 'empty', '%e' },
+                            { tag = 'literal', captured = 'true', 'a' },
+                        }
+                    }
+                }
+                assert.are.same(expected, parser.match(input))
+            end)
         end)
 
         test("a single rule with predefined character classes", function() 

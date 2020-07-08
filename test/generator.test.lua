@@ -13,7 +13,7 @@ context("Generator", function()
     context("generates a parser", function()
         context("from a grammar with", function()
             context("a rule with", function()
-                test("a lexical repetition of character class", function()
+                test("a repetition of character class", function()
                     local src1 = 'ALPHA_NUM <- [0-9a-zA-Z]+'
                     local parser1 = generator.gen(src1)
                     

@@ -75,8 +75,8 @@ local peg_grammar = [=[
     KEYWORD     <- {| {:tag: '' -> 'keyword' :}  LBSTICK  literal3 RBSTICK^ErrRBStick|}
 
     ANY     <- {| {:tag: '' -> 'any' :}        { '.' } skip |}
-    EMPTY   <- {| {:tag: '' -> 'empty' :}      ('%e' 'mpty'? -> '%%e') skip |}
-    token   <- LITERAL / CAPTURED / KEYWORD / ANY / EMPTY
+    EMPTY   <- {| {:tag: '' -> 'empty' :}      (("''" / '""' / '%e' 'mpty'?) -> '%%e') skip |}
+    token   <- EMPTY / LITERAL / CAPTURED / KEYWORD / ANY
 
     ID          <- [A-Za-z][A-Za-z0-9_]*
     predefined  <- '%' ID

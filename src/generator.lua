@@ -1,6 +1,7 @@
 local re = require"relabel"
 local lp = require"lpeglabel"
 local parser = require"caribay.parser"
+local annotator = require"caribay.annotator"
 
 lp.locale(lp) -- adds locale entries into 'lpeglabel' table
 ----------------------------------------------------------------------------
@@ -146,7 +147,7 @@ function Generator:get_syms (ast)
         info about their types and annotations.
     ]]
     local syms = {
-        SKIP = Symbol:new('SKIP', 'syn', true),
+        SKIP = Symbol:new('SKIP', 'lex', true),
         ID_START = Symbol:new('ID_START', 'lex', true),
         ID_END = Symbol:new('ID_END', 'lex', true),
         ID = Symbol:new('ID', 'lex'),
@@ -398,16 +399,22 @@ end
 ----------------------------------------------------------------------------
 
 M.gen = function (input, actions)
-    local ast, literals = parser.match(input)
-    local generator = Generator:new(actions, literals)
-    generator:get_syms(ast)
+    local generator, annot = M.annotate(input, actions)
 
-    for _, rule in ipairs(ast) do
+    for _, rule in ipairs(annot.ast) do
         generator:to_lpeg(rule)
     end
     generator:gen_auxiliars()
 
     return lp.P(generator.grammar) * -1
+end
+
+M.annotate = function(input, actions)
+    local ast, literals = parser.match(input)
+    local generator = Generator:new(actions, literals)
+    local syms = generator:get_syms(ast)
+
+    return generator, annotator.annotate(ast, syms)
 end
 
 return M
