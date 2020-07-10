@@ -164,6 +164,7 @@ function Generator:get_syms (ast)
         -- Save first symbol as first rule
         if #self.grammar == 0 and not is_fragment then
             self.grammar[1] = sym[1]
+            self.init = sym[1]
         end
 
         -- Save rule
@@ -174,6 +175,23 @@ function Generator:get_syms (ast)
     end
     self.syms = syms
     return self.syms
+end
+
+function Generator:validate_syms(exp)
+    --[[
+        Validate every symbol used has its own rule
+    ]]
+    if exp.tag == 'lex_sym' or exp.tag == 'syn_sym' then
+        return self.syms[exp[1]] or error("rule '" .. exp[1] .. "' undefined in given grammar")
+    elseif exp.tag == 'rule' then
+        return self:validate_syms(exp[2])
+    else
+        local ret = true
+        for _, sub_exp in ipairs(exp) do
+            ret = ret and self:validate_syms(sub_exp)
+        end
+        return ret
+    end
 end
 
 function Generator:to_lpeg(node, sym, is_only_child)
@@ -226,7 +244,9 @@ function Generator:gen_auxiliars()
 
     -- Generate 'ID' rule
     local capture = lp.C( lp.V'ID_START' * lp.V'ID_END'^-1 )
-    self.grammar['ID'] = lp.Cmt( lp.Ct( from_tag('ID') * capture ), function(...) return self:dont_match_keyword(...) end )
+    self.grammar['ID'] = lp.Cmt( lp.Ct( from_tag('ID') * capture ), function(...) 
+        return self:dont_match_keyword(...) 
+    end )
 
 end
 
@@ -413,8 +433,8 @@ M.annotate = function(input, actions)
     local ast, literals = parser.match(input)
     local generator = Generator:new(actions, literals)
     local syms = generator:get_syms(ast)
-
-    return generator, annotator.annotate(ast, syms)
+    generator:validate_syms(ast)
+    return generator, annotator.annotate(ast, syms, generator.init)
 end
 
 return M

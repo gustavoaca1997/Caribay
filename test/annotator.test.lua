@@ -23,14 +23,16 @@ context("Annotator", function()
     setup(function()
         parser = require"caribay.parser"
         generator = require"caribay.generator"
-        annotator = require"caribay.generator"
+        annotator = require"caribay.annotator"
 
         re = require"relabel"
         lfs = require"lfs"
+
+        END_TOKEN = annotator.END_TOKEN
     end)
 
-    -- TODO: Alse test FOLLOW and then the annotated AST.
-    context("computes FIRST set", function()
+    -- TODO: test annotated AST.
+    context("computes FIRST and FOLLOW set", function()
         context("for a parser with", function()
             context("a rule with", function()
                 test("a repetition of character class", function()
@@ -39,15 +41,22 @@ context("Annotator", function()
                     local expected_first1 = create_first{
                         ALPHA_NUM = { ALPHA_NUM = true }
                     }
+                    local expected_flw1 = {}
 
                     local src2 = 'alpha_num <- [0-9a-zA-Z]+'
                     local _, annot2 = generator.annotate(src2)
                     local expected_first2 = create_first{
                         alpha_num = { ['[0-9a-zA-Z]'] = true }
                     }
+                    local expected_flw2 = {
+                        alpha_num = { [END_TOKEN] = true },
+                    }
 
                     assert.are.same(expected_first1, annot1.first)
+                    assert.are.same(expected_flw1, annot1.follow)
                     assert.are.same(expected_first2, annot2.first)
+                    assert.are.same(expected_flw2, annot2.follow)
+
                 end)
 
                 test("a captured literal", function()
@@ -56,7 +65,11 @@ context("Annotator", function()
                     local expected_first = create_first{
                         s = { ["'a'"] = true }
                     }
+                    local expected_flw = {
+                        s = { [END_TOKEN] = true }
+                    }
                     assert.are.same(expected_first, annot.first)
+                    assert.are.same(expected_flw, annot.follow)
                 end)
 
                 test("a not captured literal", function()
@@ -65,7 +78,12 @@ context("Annotator", function()
                     local expected_first = create_first{
                         s = { ["'a'"] = true }
                     }
+                    local expected_flw = {
+                        s = { [END_TOKEN] = true }
+                    }
                     assert.are.same(expected_first, annot.first)
+                    assert.are.same(expected_flw, annot.follow)
+
                 end)
 
                 test("a captured literal between two not captured literals", function()
@@ -76,7 +94,12 @@ context("Annotator", function()
                     local expected_first = create_first{
                         s = { ["'->'"] = true }
                     }
+                    local expected_flw = {
+                        s = { [END_TOKEN] = true }
+                    }
+                    assert.are.same(expected_flw, annot.follow)
                     assert.are.same(expected_first, annot.first)
+
                 end)
 
                 test("a backslash", function()
@@ -90,6 +113,10 @@ context("Annotator", function()
                         }
                     }
                     assert.are.same(expected_first, annot.first)
+                    local expected_flw = {
+                        s = { [END_TOKEN] = true }
+                    }
+                    assert.are.same(expected_flw, annot.follow)
                 end)
 
                 test("an ordered choice of literals", function()
@@ -105,6 +132,10 @@ context("Annotator", function()
                         }
                     }
                     assert.are.same(expected_first, annot.first)
+                    local expected_flw = {
+                        s = { [END_TOKEN] = true }
+                    }
+                    assert.are.same(expected_flw, annot.follow)
                 end)
 
                 test("empty token", function()
@@ -115,12 +146,18 @@ context("Annotator", function()
                     local _, annot = generator.annotate(src)
                     local expected_first = create_first{
                         s = {
-                            ["'a'"] = true,
+                            A = true,
                         },
                         A = {
-                            ["'a'"] = true,
+                            A = true,
                         }
                     }
+                    assert.are.same(expected_first, annot.first)
+
+                    local expected_flw = {
+                        s = { [END_TOKEN] = true },
+                    }
+                    assert.are.same(expected_flw, annot.follow)
                 end)
 
                 test("sequences as ordered choices", function()
@@ -135,6 +172,11 @@ context("Annotator", function()
                             ["'&'"] = true,
                         }
                     }
+                    assert.are.same(expected_first, annot.first)
+                    local expected_flw = {
+                        s = { [END_TOKEN] = true }
+                    }
+                    assert.are.same(expected_flw, annot.follow)
                 end)
             end)
 
@@ -159,6 +201,12 @@ context("Annotator", function()
                     }
                 }
                 assert.are.same(expected_first, annot.first)
+                local expected_flw = {
+                    s = { [END_TOKEN] = true },
+                    between_brackets = { [END_TOKEN] = true },
+                    between_parentheses = { [END_TOKEN] = true },
+                }
+                assert.are.same(expected_flw, annot.follow)
             end)
 
             test("two trivial lexical rules and one initial syntactic rule", function()
@@ -174,27 +222,44 @@ context("Annotator", function()
                     LAST = { LAST = true, }
                 }
                 assert.are.same(expected_first, annot.first)
+                local expected_follow = {
+                    full_name = { [END_TOKEN] = true },
+                }
+                assert.are.same(expected_follow, annot.follow)
             end)
 
             test("and predicate", function()
                 -- Context-sensitive language {a^n b^n c^n : n >= 1}
                 local src = [[
-                    s <- &(A 'c') 'a'+ B
-                    A <- 'a' A? 'b'
-                    B <- 'b' B? 'c'
+                    s <- &(a 'c') 'a'+ b
+                    a <- 'a' a? 'b'
+                    b <- 'b' b? 'c'
                 ]]
+                local _, annot = generator.annotate(src)
 
                 local expected_first = create_first{
                     s = {
                         ["'a'"] = true,
                     },
-                    A = {
+                    a = {
                         ["'a'"] = true,
                     },
-                    B = {
+                    b = {
                         ["'b'"] = true,
                     },
                 }
+                assert.are.same(expected_first, annot.first)
+                local expected_flw = {
+                    s = { [END_TOKEN] = true },
+                    a = {
+                        ["'b'"] = true,
+                    },
+                    b = { 
+                        [END_TOKEN] = true ,
+                        ["'c'"] = true,
+                    },
+                }
+                assert.are.same(expected_flw, annot.follow)
             end)
 
             test("some fragments", function()
@@ -218,7 +283,16 @@ context("Annotator", function()
                         FLOAT = true,
                     }
                 }
+                local expected_flw = {
+                    number = {
+                        INT = true,
+                        FLOAT = true,
+                        [END_TOKEN] = true,
+                    },
+                    list = { [END_TOKEN] = true }
+                }
                 assert.are.same(expected_first, annot.first)
+                assert.are.same(expected_flw, annot.follow)
             end)
 
             test("syntactic repetition of bits", function()
@@ -231,10 +305,14 @@ context("Annotator", function()
                     BIT = { BIT = true },
                     rand_bits = { BIT = true }
                 }
+                local expected_flw = {
+                    rand_bits = { [END_TOKEN] = true }
+                }
                 assert.are.same(expected_first, annot.first)
+                assert.are.same(expected_flw, annot.follow)
             end)
 
-            test("default ID rule and a keyword", function()
+            test("default ID rule, a keyword and repeated syntactic ordered choice", function()
                 local src = [[
                     s <- (print / assign)+
                     assign <- ID '=' INT
@@ -253,7 +331,21 @@ context("Annotator", function()
                         ID = true,
                     }
                 }
+                local expected_flw = {
+                    s = { [END_TOKEN] = true },
+                    assign = {
+                        ID = true,
+                        ["`print`"] = true,
+                        [END_TOKEN] = true,
+                    },
+                    print = {
+                        ID = true,
+                        ["`print`"] = true,
+                        [END_TOKEN] = true,
+                    }
+                }
                 assert.are.same(expected_first, annot.first)
+                assert.are.same(expected_flw, annot.follow)
             end)
 
             test("keyword rules and its own SKIP rule", function()
@@ -278,7 +370,21 @@ context("Annotator", function()
                         ID = true,
                     }
                 }
+                local expected_flw = {
+                    idx = {
+                        ID = true,
+                        VECTOR = true,
+                        [END_TOKEN] = true,
+                    },
+                    init = {
+                        ID = true,
+                        VECTOR = true,
+                        [END_TOKEN] = true,
+                    },
+                    s = { [END_TOKEN] = true },
+                }
                 assert.are.same(expected_first, annot.first)
+                assert.are.same(expected_flw, annot.follow)
             end)
 
             test("user defined `COMMENT`", function()
@@ -293,7 +399,32 @@ context("Annotator", function()
                     COMMENT = { COMMENT = true },
                     s = { NUMBER = true },
                 }
+                local expected_flw = {
+                    s = { [END_TOKEN] = true },
+                }
                 assert.are.same(expected_first, annot.first)
+                assert.are.same(expected_flw, annot.follow)
+            end)
+
+            test("recursive initial symbol", function()
+                local src = [[
+                    a <- '(' a ')' / %e
+                ]]
+                local _, annot = generator.annotate(src)
+                local expected_first = create_first{
+                    a = {
+                        ["'('"] = true,
+                        ["%e"] = true,
+                    }
+                }
+                local expected_flw = {
+                    a = {
+                        ["')'"] = true,
+                        [END_TOKEN] = true,
+                    }
+                }
+                assert.are.same(expected_first, annot.first)
+                assert.are.same(expected_flw, annot.follow)
             end)
 
             test("a prefix empty expression I", function()
@@ -306,7 +437,11 @@ context("Annotator", function()
                         ["'a'"] = true,
                     }
                 }
+                local expected_flw = {
+                    s = { [END_TOKEN] = true },
+                }
                 assert.are.same(expected_first, annot.first)
+                assert.are.same(expected_flw, annot.follow)
             end)
 
             test("a prefix empty expression II", function()
@@ -320,6 +455,10 @@ context("Annotator", function()
                     }
                 }
                 assert.are.same(expected_first, annot.first)
+                local expected_flw = {
+                    s = { [END_TOKEN] = true },
+                }
+                assert.are.same(expected_flw, annot.follow)
             end)
 
             test("a prefix star expression I", function()
@@ -334,6 +473,10 @@ context("Annotator", function()
                     }
                 }
                 assert.are.same(expected_first, annot.first)
+                local expected_flw = {
+                    s = { [END_TOKEN] = true },
+                }
+                assert.are.same(expected_flw, annot.follow)
             end)
 
             test("a prefix star expression II", function()
@@ -353,11 +496,20 @@ context("Annotator", function()
                     }
                 }
                 assert.are.same(expected_first, annot.first)
+                local expected_flw = {
+                    s = { [END_TOKEN] = true },
+                    dots = {
+                        ["';'"] = true,
+                        ["'.'"] = true,
+                        ["':'"] = true,
+                    }
+                }
+                assert.are.same(expected_flw, annot.follow)
             end)
 
             test("a prefix option expression", function()
                 local src = [[
-                    s <- ((";" / dots) ":")? "!"
+                    s <- ((";" / dots) ":"?)? "!"
                     dots <- "."*
                 ]]
                 local _, annot = generator.annotate(src)
@@ -374,6 +526,107 @@ context("Annotator", function()
                     }
                 }
                 assert.are.same(expected_first, annot.first)
+                local expected_flw = {
+                    s = { [END_TOKEN] = true },
+                    dots = {
+                        ["'!'"] = true,
+                        ["':'"] = true,
+                    }
+                }
+                assert.are.same(expected_flw, annot.follow)
+            end)
+
+            test("with lexical element in the middle of a sequence", function()
+                local src = [[
+                    s <- a ID c
+                    a <- ID
+                    c <- NUMBER (',' NUMBER)*
+                    NUMBER <- %d+
+                ]]
+                local _, annot = generator.annotate(src)
+                local expected_first = create_first{
+                    NUMBER = { NUMBER = true },
+                    c = { NUMBER = true },
+                    a = { ID = true },
+                    s = { ID = true },
+                }
+                local expected_flw = {
+                    c = { [END_TOKEN] = true },
+                    a = { ID = true },
+                    s = { [END_TOKEN] = true },
+                }
+                assert.are.same(expected_first, annot.first)
+                assert.are.same(expected_flw, annot.follow)
+            end)
+
+            test("with ordered choice", function()
+                local src = [[
+                    s <- a b c
+                    a <- ID
+                    b <- "==" / "<" / ">"
+                    c <- NUMBER (',' NUMBER)*
+                    NUMBER <- %d+
+                ]]
+                local _, annot = generator.annotate(src)
+                local expected_first = create_first{
+                    NUMBER = { NUMBER = true },
+                    c = { NUMBER = true },
+                    b = {
+                        ["'<'"] = true,
+                        ["'>'"] = true,
+                        ["'=='"] = true,
+                    },
+                    a = { ID = true },
+                    s = { ID = true },
+                }
+                local expected_flw = {
+                    c = { [END_TOKEN] = true },
+                    b = { NUMBER = true },
+                    a = {
+                        ["'=='"] = true,
+                        ["'<'"] = true,
+                        ["'>'"] = true,
+                    },
+                    s = { [END_TOKEN] = true },
+                }
+                assert.are.same(expected_first, annot.first)
+                assert.are.same(expected_flw, annot.follow)
+            end)
+    
+            test("with a starred ordered choice and an optional", function()
+                local src = [[
+                    s <- a b c
+                    a <- ID
+                    b <- ("<" / ">")* "="?
+                    c <- NUMBER (',' NUMBER)*
+                    NUMBER <- %d+
+                ]]
+                local _, annot = generator.annotate(src)
+                local expected_first = create_first{
+                    NUMBER = { NUMBER = true },
+                    c = { NUMBER = true },
+                    b = {
+                        ["'<'"] = true,
+                        ["'>'"] = true,
+                        ["'='"] = true,
+                        ["%e"] = true,
+                    },
+                    a = { ID = true },
+                    s = { ID = true },
+                }
+                local expected_flw = {
+                    c = { [END_TOKEN] = true },
+                    b = { NUMBER = true },
+                    a = {
+                        ["'='"] = true,
+                        ["'<'"] = true,
+                        ["'>'"] = true,
+                        NUMBER = true,
+                    },
+                    s = { [END_TOKEN] = true },
+                }
+                assert.are.same(expected_first, annot.first)
+                assert.are.same(expected_flw, annot.follow)
             end)
 
             test("a named group and a semantic acton", function()
@@ -404,6 +657,23 @@ context("Annotator", function()
                     }
                 }
                 assert.are.same(expected_first, annot.first)
+                local expected_flw = {
+                    long_str = { [END_TOKEN] = true },
+                    open_str = {
+                        ["'\n'"] = true,
+                        ["."] = true,
+                        ["']'"] = true,
+                    },
+                    close_str = {
+                        [END_TOKEN] = true,
+                    },
+                    close_eq = {},
+                    equals = {
+                        ["'['"] = true,
+                        ["']'"] = true,
+                    }
+                }
+                assert.are.same(expected_flw, annot.follow)
             end)
 
             test("a syntactic named group", function()
@@ -418,6 +688,10 @@ context("Annotator", function()
                     }
                 }
                 assert.are.same(expected_first, annot.first)
+                local expected_flw = {
+                    s = { [END_TOKEN] = true },
+                }
+                assert.are.same(expected_flw, annot.follow)
             end)
 
             test("from JSON grammar", function()
@@ -455,334 +729,363 @@ context("Annotator", function()
                     }
                 }
                 assert.are.same(expected_first, annot.first)
-            end)
 
-            test("from Lua grammar", function()
-                local f = assert(io.open("./test/expected/lua/grammar.peg", "r"))
-                local src = f:read("a")
-                local _, annot = generator.annotate(src)
-                f:close()
-        
-                local expected_first = create_first{
-                    ESC = { ESC = true },
-                    STRING = { STRING = true },
-                    EQUALS = { EQUALS = true },
-                    OPEN_STR = { OPEN_STR = true },
-                    CLOSE_STR = {CLOSE_STR = true },
-                    CLOSE_EQ = {CLOSE_EQ = true },
-                    LONG_STR = { LONG_STR = true },
-                    NUMBER = { NUMBER = true },
-                    COMMENT = { COMMENT = true },
-                    SP_COMMENT = { SP_COMMENT = true };
-
-                    fieldsep = {
+                local expected_flw = {
+                    value = {
                         ["','"] = true,
-                        ["';'"] = true,
+                        ["']'"] = true,
+                        ["'}'"] = true,
+                        [END_TOKEN] = true,
                     },
-                    field = {
-                        ["'['"] = true,
-                        ID = true,
-                        ["`not`"] = true,
-                        ["'#'"] = true,
-                        ["'-'"] = true,
-                        ["`nil`"] = true,
-                        ["`false`"] = true,
-                        ["`true`"] = true,
-                        NUMBER = true,
-                        STRING = true,
-                        ["`function`"] = true,
-                        ["'...'"] = true,
-                        ID = true,
-                        ["'('"] = true,
-                        ["'{'"] = true,
+                    json = { [END_TOKEN] = true },
+                    pair = {
+                        ["','"] = true,
+                        ["'}'"] = true,
                     },
-                    fieldlist = {
-                        ["'['"] = true,
-                        ID = true,
-                        ["`not`"] = true,
-                        ["'#'"] = true,
-                        ["'-'"] = true,
-                        ["`nil`"] = true,
-                        ["`false`"] = true,
-                        ["`true`"] = true,
-                        NUMBER = true,
-                        STRING = true,
-                        ["`function`"] = true,
-                        ["'...'"] = true,
-                        ID = true,
-                        ["'('"] = true,
-                        ["'{'"] = true,
+                    array = {
+                        ["','"] = true,
+                        ["']'"] = true,
+                        ["'}'"] = true,
+                        [END_TOKEN] = true,
                     },
-                    tableconstructor = { ["'{'"] = true },
-                    parlist = {
-                        ID = true,
-                        ["'...'"] = true,
-                    },
-                    funcbody = { ["'('"] = true },
-                    ["function"] = { ["`function`"] = true },
-                    args = {
-                        ["'('"] = true,
-                        ["'{'"] = true,
-                        STRING = true,
-                    },
-                    functioncall = {
-                        ID = true,
-                        ["'('"] = true,
-                    },
-                    prefiexp = {
-                        ID = true,
-                        ["'('"] = true,
-                    },
-                    prefiatom = {
-                        ID = true,
-                        ["'('"] = true,
-                    },
-                    unary_op = { 
-                        ["`not`"] = true,
-                        ["'#'"] = true,
-                        ["'-'"] = true,
-                    },
-                    factor_op = {
-                        ["'*'"] = true,
-                        ["'/'"] = true,
-                        ["'%'"] = true,
-                    },
-                    term_op = {
-                        ["'+'"] = true,
-                        ["'-'"] = true,
-                    },
-                    comp_op = {
-                        ["'<'"] = true,
-                        ["'>'"] = true,
-                        ["'<='"] = true,
-                        ["'>='"] = true,
-                        ["'~='"] = true,
-                        ["'=='"] = true,
-                    },
-                    atom_exp = {
-                        ["`nil`"] = true,
-                        ["`false`"] = true,
-                        ["`true`"] = true,
-                        NUMBER = true,
-                        STRING = true,
-                        ["`function`"] = true,
-                        ["'...'"] = true,
-                        ID = true,
-                        ["'('"] = true,
-                        ["'{'"] = true,
-                    },
-                    unary = {
-                        ["`not`"] = true,
-                        ["'#'"] = true,
-                        ["'-'"] = true,
-                        ["`nil`"] = true,
-                        ["`false`"] = true,
-                        ["`true`"] = true,
-                        NUMBER = true,
-                        STRING = true,
-                        ["`function`"] = true,
-                        ["'...'"] = true,
-                        ID = true,
-                        ["'('"] = true,
-                        ["'{'"] = true,
-                    },
-                    factor = {
-                        ["`not`"] = true,
-                        ["'#'"] = true,
-                        ["'-'"] = true,
-                        ["`nil`"] = true,
-                        ["`false`"] = true,
-                        ["`true`"] = true,
-                        NUMBER = true,
-                        STRING = true,
-                        ["`function`"] = true,
-                        ["'...'"] = true,
-                        ID = true,
-                        ["'('"] = true,
-                        ["'{'"] = true,
-                    },
-                    term = {
-                        ["`not`"] = true,
-                        ["'#'"] = true,
-                        ["'-'"] = true,
-                        ["`nil`"] = true,
-                        ["`false`"] = true,
-                        ["`true`"] = true,
-                        NUMBER = true,
-                        STRING = true,
-                        ["`function`"] = true,
-                        ["'...'"] = true,
-                        ID = true,
-                        ["'('"] = true,
-                        ["'{'"] = true,
-                    },
-                    arit = {
-                        ["`not`"] = true,
-                        ["'#'"] = true,
-                        ["'-'"] = true,
-                        ["`nil`"] = true,
-                        ["`false`"] = true,
-                        ["`true`"] = true,
-                        NUMBER = true,
-                        STRING = true,
-                        ["`function`"] = true,
-                        ["'...'"] = true,
-                        ID = true,
-                        ["'('"] = true,
-                        ["'{'"] = true,
-                    },
-                    conc = {
-                        ["`not`"] = true,
-                        ["'#'"] = true,
-                        ["'-'"] = true,
-                        ["`nil`"] = true,
-                        ["`false`"] = true,
-                        ["`true`"] = true,
-                        NUMBER = true,
-                        STRING = true,
-                        ["`function`"] = true,
-                        ["'...'"] = true,
-                        ID = true,
-                        ["'('"] = true,
-                        ["'{'"] = true,
-                    },
-                    comp = {
-                        ["`not`"] = true,
-                        ["'#'"] = true,
-                        ["'-'"] = true,
-                        ["`nil`"] = true,
-                        ["`false`"] = true,
-                        ["`true`"] = true,
-                        NUMBER = true,
-                        STRING = true,
-                        ["`function`"] = true,
-                        ["'...'"] = true,
-                        ID = true,
-                        ["'('"] = true,
-                        ["'{'"] = true,
-                    },
-                    conj = {
-                        ["`not`"] = true,
-                        ["'#'"] = true,
-                        ["'-'"] = true,
-                        ["`nil`"] = true,
-                        ["`false`"] = true,
-                        ["`true`"] = true,
-                        NUMBER = true,
-                        STRING = true,
-                        ["`function`"] = true,
-                        ["'...'"] = true,
-                        ID = true,
-                        ["'('"] = true,
-                        ["'{'"] = true,
-                    },
-                    exp = {
-                        ["`not`"] = true,
-                        ["'#'"] = true,
-                        ["'-'"] = true,
-                        ["`nil`"] = true,
-                        ["`false`"] = true,
-                        ["`true`"] = true,
-                        NUMBER = true,
-                        STRING = true,
-                        ["`function`"] = true,
-                        ["'...'"] = true,
-                        ID = true,
-                        ["'('"] = true,
-                        ["'{'"] = true,
-                    },
-                    explist = {
-                        ["`not`"] = true,
-                        ["'#'"] = true,
-                        ["'-'"] = true,
-                        ["`nil`"] = true,
-                        ["`false`"] = true,
-                        ["`true`"] = true,
-                        NUMBER = true,
-                        STRING = true,
-                        ["`function`"] = true,
-                        ["'...'"] = true,
-                        ID = true,
-                        ["'('"] = true,
-                        ["'{'"] = true,
-                    },
-                    namelist = { ID = true },
-                    sufiexp = {
-                        ["'.'"] = true,
-                        ["'['"] = true,
-                    },
-                    dot_exp = { ["'.'"] = true },
-                    key_exp = { ["'['"] = true },
-                    var = {
-                        ID = true,
-                        ["'('"] = true,
-                    },
-                    varlist = {
-                        ID = true,
-                        ["'('"] = true,
-                    },
-                    funcname = { ID = true },
-                    laststat = {
-                        ["`return`"] = true,
-                        ["`break`"] = true,
-                    },
-                    stat = {
-                        ["`do`"] = true,
-                        ["`while`"] = true,
-                        ["`repeat`"] = true,
-                        ["`if`"] = true,
-                        ["`for`"] = true,
-                        ["`function`"] = true,
-                        ["`local`"] = true,
-                        ID = true,
-                        ["'('"] = true,
-                    },
-                    block = {
-                        ["`do`"] = true,
-                        ["`while`"] = true,
-                        ["`repeat`"] = true,
-                        ["`if`"] = true,
-                        ["`for`"] = true,
-                        ["`function`"] = true,
-                        ["`local`"] = true,
-                        ID = true,
-                        ["'('"] = true,
-                        ["`return`"] = true,
-                        ["`break`"] = true,
-                        ["%e"] = true,
-                    },
-                    chunk = {
-                        ["`do`"] = true,
-                        ["`while`"] = true,
-                        ["`repeat`"] = true,
-                        ["`if`"] = true,
-                        ["`for`"] = true,
-                        ["`function`"] = true,
-                        ["`local`"] = true,
-                        ID = true,
-                        ["'('"] = true,
-                        ["`return`"] = true,
-                        ["`break`"] = true,
-                        ["%e"] = true,
-                    },
-                    program = {
-                        SP_COMMENT = true,
-                        ["`do`"] = true,
-                        ["`while`"] = true,
-                        ["`repeat`"] = true,
-                        ["`if`"] = true,
-                        ["`for`"] = true,
-                        ["`function`"] = true,
-                        ["`local`"] = true,
-                        ID = true,
-                        ["'('"] = true,
-                        ["`return`"] = true,
-                        ["`break`"] = true,
-                        ["%e"] = true,
+                    object = {
+                        ["','"] = true,
+                        ["']'"] = true,
+                        ["'}'"] = true,
+                        [END_TOKEN] = true,
                     }
                 }
-                assert.are.same(expected_first, annot.first)
+                assert.are.same(expected_flw, annot.follow)
             end)
+        end)
+    end)
+
+    context("computes FIRST set", function()
+        test("from Lua grammar", function()
+            local f = assert(io.open("./test/expected/lua/grammar.peg", "r"))
+            local src = f:read("a")
+            local _, annot = generator.annotate(src)
+            f:close()
+    
+            local expected_first = create_first{
+                ESC = { ESC = true },
+                STRING = { STRING = true },
+                EQUALS = { EQUALS = true },
+                OPEN_STR = { OPEN_STR = true },
+                CLOSE_STR = {CLOSE_STR = true },
+                CLOSE_EQ = {CLOSE_EQ = true },
+                LONG_STR = { LONG_STR = true },
+                NUMBER = { NUMBER = true },
+                COMMENT = { COMMENT = true },
+                SP_COMMENT = { SP_COMMENT = true };
+
+                fieldsep = {
+                    ["','"] = true,
+                    ["';'"] = true,
+                },
+                field = {
+                    ["'['"] = true,
+                    ID = true,
+                    ["`not`"] = true,
+                    ["'#'"] = true,
+                    ["'-'"] = true,
+                    ["`nil`"] = true,
+                    ["`false`"] = true,
+                    ["`true`"] = true,
+                    NUMBER = true,
+                    STRING = true,
+                    ["`function`"] = true,
+                    ["'...'"] = true,
+                    ID = true,
+                    ["'('"] = true,
+                    ["'{'"] = true,
+                },
+                fieldlist = {
+                    ["'['"] = true,
+                    ID = true,
+                    ["`not`"] = true,
+                    ["'#'"] = true,
+                    ["'-'"] = true,
+                    ["`nil`"] = true,
+                    ["`false`"] = true,
+                    ["`true`"] = true,
+                    NUMBER = true,
+                    STRING = true,
+                    ["`function`"] = true,
+                    ["'...'"] = true,
+                    ID = true,
+                    ["'('"] = true,
+                    ["'{'"] = true,
+                },
+                tableconstructor = { ["'{'"] = true },
+                parlist = {
+                    ID = true,
+                    ["'...'"] = true,
+                },
+                funcbody = { ["'('"] = true },
+                ["function"] = { ["`function`"] = true },
+                args = {
+                    ["'('"] = true,
+                    ["'{'"] = true,
+                    STRING = true,
+                },
+                functioncall = {
+                    ID = true,
+                    ["'('"] = true,
+                },
+                prefiexp = {
+                    ID = true,
+                    ["'('"] = true,
+                },
+                prefiatom = {
+                    ID = true,
+                    ["'('"] = true,
+                },
+                unary_op = { 
+                    ["`not`"] = true,
+                    ["'#'"] = true,
+                    ["'-'"] = true,
+                },
+                factor_op = {
+                    ["'*'"] = true,
+                    ["'/'"] = true,
+                    ["'%'"] = true,
+                },
+                term_op = {
+                    ["'+'"] = true,
+                    ["'-'"] = true,
+                },
+                comp_op = {
+                    ["'<'"] = true,
+                    ["'>'"] = true,
+                    ["'<='"] = true,
+                    ["'>='"] = true,
+                    ["'~='"] = true,
+                    ["'=='"] = true,
+                },
+                atom_exp = {
+                    ["`nil`"] = true,
+                    ["`false`"] = true,
+                    ["`true`"] = true,
+                    NUMBER = true,
+                    STRING = true,
+                    ["`function`"] = true,
+                    ["'...'"] = true,
+                    ID = true,
+                    ["'('"] = true,
+                    ["'{'"] = true,
+                },
+                unary = {
+                    ["`not`"] = true,
+                    ["'#'"] = true,
+                    ["'-'"] = true,
+                    ["`nil`"] = true,
+                    ["`false`"] = true,
+                    ["`true`"] = true,
+                    NUMBER = true,
+                    STRING = true,
+                    ["`function`"] = true,
+                    ["'...'"] = true,
+                    ID = true,
+                    ["'('"] = true,
+                    ["'{'"] = true,
+                },
+                factor = {
+                    ["`not`"] = true,
+                    ["'#'"] = true,
+                    ["'-'"] = true,
+                    ["`nil`"] = true,
+                    ["`false`"] = true,
+                    ["`true`"] = true,
+                    NUMBER = true,
+                    STRING = true,
+                    ["`function`"] = true,
+                    ["'...'"] = true,
+                    ID = true,
+                    ["'('"] = true,
+                    ["'{'"] = true,
+                },
+                term = {
+                    ["`not`"] = true,
+                    ["'#'"] = true,
+                    ["'-'"] = true,
+                    ["`nil`"] = true,
+                    ["`false`"] = true,
+                    ["`true`"] = true,
+                    NUMBER = true,
+                    STRING = true,
+                    ["`function`"] = true,
+                    ["'...'"] = true,
+                    ID = true,
+                    ["'('"] = true,
+                    ["'{'"] = true,
+                },
+                arit = {
+                    ["`not`"] = true,
+                    ["'#'"] = true,
+                    ["'-'"] = true,
+                    ["`nil`"] = true,
+                    ["`false`"] = true,
+                    ["`true`"] = true,
+                    NUMBER = true,
+                    STRING = true,
+                    ["`function`"] = true,
+                    ["'...'"] = true,
+                    ID = true,
+                    ["'('"] = true,
+                    ["'{'"] = true,
+                },
+                conc = {
+                    ["`not`"] = true,
+                    ["'#'"] = true,
+                    ["'-'"] = true,
+                    ["`nil`"] = true,
+                    ["`false`"] = true,
+                    ["`true`"] = true,
+                    NUMBER = true,
+                    STRING = true,
+                    ["`function`"] = true,
+                    ["'...'"] = true,
+                    ID = true,
+                    ["'('"] = true,
+                    ["'{'"] = true,
+                },
+                comp = {
+                    ["`not`"] = true,
+                    ["'#'"] = true,
+                    ["'-'"] = true,
+                    ["`nil`"] = true,
+                    ["`false`"] = true,
+                    ["`true`"] = true,
+                    NUMBER = true,
+                    STRING = true,
+                    ["`function`"] = true,
+                    ["'...'"] = true,
+                    ID = true,
+                    ["'('"] = true,
+                    ["'{'"] = true,
+                },
+                conj = {
+                    ["`not`"] = true,
+                    ["'#'"] = true,
+                    ["'-'"] = true,
+                    ["`nil`"] = true,
+                    ["`false`"] = true,
+                    ["`true`"] = true,
+                    NUMBER = true,
+                    STRING = true,
+                    ["`function`"] = true,
+                    ["'...'"] = true,
+                    ID = true,
+                    ["'('"] = true,
+                    ["'{'"] = true,
+                },
+                exp = {
+                    ["`not`"] = true,
+                    ["'#'"] = true,
+                    ["'-'"] = true,
+                    ["`nil`"] = true,
+                    ["`false`"] = true,
+                    ["`true`"] = true,
+                    NUMBER = true,
+                    STRING = true,
+                    ["`function`"] = true,
+                    ["'...'"] = true,
+                    ID = true,
+                    ["'('"] = true,
+                    ["'{'"] = true,
+                },
+                explist = {
+                    ["`not`"] = true,
+                    ["'#'"] = true,
+                    ["'-'"] = true,
+                    ["`nil`"] = true,
+                    ["`false`"] = true,
+                    ["`true`"] = true,
+                    NUMBER = true,
+                    STRING = true,
+                    ["`function`"] = true,
+                    ["'...'"] = true,
+                    ID = true,
+                    ["'('"] = true,
+                    ["'{'"] = true,
+                },
+                namelist = { ID = true },
+                sufiexp = {
+                    ["'.'"] = true,
+                    ["'['"] = true,
+                },
+                dot_exp = { ["'.'"] = true },
+                key_exp = { ["'['"] = true },
+                var = {
+                    ID = true,
+                    ["'('"] = true,
+                },
+                varlist = {
+                    ID = true,
+                    ["'('"] = true,
+                },
+                funcname = { ID = true },
+                laststat = {
+                    ["`return`"] = true,
+                    ["`break`"] = true,
+                },
+                stat = {
+                    ["`do`"] = true,
+                    ["`while`"] = true,
+                    ["`repeat`"] = true,
+                    ["`if`"] = true,
+                    ["`for`"] = true,
+                    ["`function`"] = true,
+                    ["`local`"] = true,
+                    ID = true,
+                    ["'('"] = true,
+                },
+                block = {
+                    ["`do`"] = true,
+                    ["`while`"] = true,
+                    ["`repeat`"] = true,
+                    ["`if`"] = true,
+                    ["`for`"] = true,
+                    ["`function`"] = true,
+                    ["`local`"] = true,
+                    ID = true,
+                    ["'('"] = true,
+                    ["`return`"] = true,
+                    ["`break`"] = true,
+                    ["%e"] = true,
+                },
+                chunk = {
+                    ["`do`"] = true,
+                    ["`while`"] = true,
+                    ["`repeat`"] = true,
+                    ["`if`"] = true,
+                    ["`for`"] = true,
+                    ["`function`"] = true,
+                    ["`local`"] = true,
+                    ID = true,
+                    ["'('"] = true,
+                    ["`return`"] = true,
+                    ["`break`"] = true,
+                    ["%e"] = true,
+                },
+                program = {
+                    SP_COMMENT = true,
+                    ["`do`"] = true,
+                    ["`while`"] = true,
+                    ["`repeat`"] = true,
+                    ["`if`"] = true,
+                    ["`for`"] = true,
+                    ["`function`"] = true,
+                    ["`local`"] = true,
+                    ID = true,
+                    ["'('"] = true,
+                    ["`return`"] = true,
+                    ["`break`"] = true,
+                    ["%e"] = true,
+                }
+            }
+            assert.are.same(expected_first, annot.first)
         end)
     end)
 end)
