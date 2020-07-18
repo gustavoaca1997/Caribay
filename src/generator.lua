@@ -2,6 +2,7 @@ local re = require"relabel"
 local lp = require"lpeglabel"
 local parser = require"caribay.parser"
 local annotator = require"caribay.annotator"
+local Symbol = require"Symbol"
 
 lp.locale(lp) -- adds locale entries into 'lpeglabel' table
 ----------------------------------------------------------------------------
@@ -54,6 +55,7 @@ function Generator:new(actions, literals_map)
         keywords = {},
         syms = {},
         grammar = {},
+        labels = {},
         literals_patterns = M.unique_token_prefix(literals_map),
     }
 
@@ -105,37 +107,76 @@ function Generator:unique_lex(literal_str, sym, is_only_child)
     end
 end
 
-----------------------------------------------------------------------------
-----------------------------------------------------------------------------
-
--- Symbol class
-local Symbol = {
-    is_fragment = false,
-    is_keyword = false,
-    is_skippable = false,
-    rule_no = 0,
-}
-
-function Symbol:is_lex()
-    return self.type == 'lex'
+local function is_lex_sym_str(sym_str)
+    return re.match(sym_str, "[A-Z][A-Z0-9_]* !.")
 end
 
-function Symbol:is_syn()
-    return self.type == 'syn'
+----------------------------------------------------------------------------
+--------------------------- Algorithm Unique -------------------------------
+----------------------------------------------------------------------------
+
+function Generator:calck(ast_exp ,flw)
+    --[[
+        It is used to update the FOLLOW set associated with a
+        parsing expression.
+    ]]
+
+    local first = self.annot:get_first(ast_exp)
+    if flw['%e'] then
+        first['%e'] = nil
+        return first:union(flw)
+    else
+        return first
+    end
 end
 
-function Symbol:new(sym_str, type, is_fragment, is_keyword, is_skippable, rule_no)
-    local obj = {
-        sym_str = sym_str,
-        type = type,
-        is_fragment = is_fragment,
-        is_keyword = is_keyword,
-        is_skippable = is_skippable,
-        rule_no = rule_no,
-    }
-    self.__index = self
-    setmetatable(obj, self)
-    return obj
+function Generator:add_label(ast_node, flw, sym, is_only_child)
+    --[[
+        Receives a parsing expression p to annotate and its associated F OLLOW set f lw.
+        Function addlab associates a label l to p and also builds a recovery expression
+        for l based on f lw
+    ]]
+
+    local tag = ast_node.tag
+    local pattern = self:to_lpeg(ast_node, sym, is_only_child)
+
+    -- If this is the first label with this name, append a 1,
+    -- otherwise append correct number.
+    local label = sym.sym_str .. '_' .. tag
+    if self.labels[label] then
+        local new_no = self.labels[label]+1
+        self.labels[label] = new_no
+        label = label .. new_no
+    else
+        self.labels[label] = 1
+        label = label .. 1
+    end
+
+    -- Create ordered choice for the follow set
+    local flw_choice
+    for k, _ in flw do
+        local fst_char = k:sub(1,1)
+
+        local elem
+        if fst_char == '`' then             -- it's a keyword
+            elem = self:kw_to_lpeg(k, sym)
+
+        elseif fst_char == '"' or fst_char == "'" then -- it's a literal
+            elem = self:lit_to_lpeg(k, sym) 
+
+        elseif is_lex_sym_str(k) then       -- it's a lex symbol
+            elem = self:lex_to_lpeg(k, sym)
+        else                                -- it's a syn symbol
+            elem = self:syn_to_lpeg(k, sym)
+        end
+
+        flw_choice = (flw_choice and flw_choice + elem) or elem
+    end
+
+    -- Recovery rule
+    self.grammar[label] = (-flw_choice * lp.P(1))^0
+    -- pattern^label
+    return pattern + lp.T(label)
 end
 
 ----------------------------------------------------------------------------
@@ -200,7 +241,7 @@ function Generator:to_lpeg(node, sym, is_only_child)
         ast node and the lhs of the current rule.
         It uses the table `generator`.
 
-        If `is_unique` is true, this node is 
+        If `is_only_child` is true, this node is 
         considered as the only child of the parent node.
     ]]
     return generator[node.tag](self, node, sym, is_only_child)
@@ -270,6 +311,46 @@ local function capt_if_syn(pattern, sym)
 end
 
 ----------------------------------------------------------------------------
+----------------------------------------------------------------------------
+
+function Generator:lex_to_lpeg(lex, sym)
+    local lex_sym = self.syms[lex]
+    return add_SKIP(lp.V(lex), sym)
+end
+
+function Generator:syn_to_lpeg(syn, sym )
+    local syn_sym = self.syms[syn]
+    if sym:is_lex() then
+        throw_error('Trying to use a syntactic element in a lexical rule', sym)
+    else
+        return lp.V(syn)
+    end
+end
+
+function Generator:lit_to_lpeg(literal_str, sym, captured, is_only_child)
+    local literal_lpeg = self:unique_lex(literal_str, sym, is_only_child)
+
+    if sym:is_lex() or not captured then
+        return add_SKIP(literal_lpeg, sym)
+    else
+        return add_SKIP(lp.Ct( from_tag('token') * lp.C(literal_lpeg) ), sym)
+    end
+end
+
+function Generator:kw_to_lpeg(literal_str, sym, is_only_child )
+    local literal_lpeg = self:unique_lex(literal_str, sym, is_only_child)
+
+    -- Keep track of kwywords
+    self.keywords[literal_str] = true
+
+    local pattern = to_keyword(literal_lpeg)
+    if sym:is_syn() then
+        pattern = lp.Ct( from_tag('token') * lp.C(pattern) )
+    end
+    return add_SKIP(pattern, sym)
+end
+
+----------------------------------------------------------------------------
 ------------------- Generators for each AST tag ----------------------------
 ----------------------------------------------------------------------------
 
@@ -300,20 +381,11 @@ generator['rule'] = function(self, node)
 end
 
 generator['lex_sym'] = function(self, node, sym)
-    local lex = node[1]
-    local lex_sym = self.syms[lex]
-    return add_SKIP(lp.V(lex), sym)
-
+    return self:lex_to_lpeg(node[1], sym)
 end
 
 generator['syn_sym'] = function(self, node, sym)
-    local syn = node[1]
-    local syn_sym = self.syms[syn]
-    if sym:is_lex() then
-        throw_error('Trying to use a syntactic element in a lexical rule', sym)
-    else
-        return lp.V(syn)
-    end
+    return self:syn_to_lpeg(node[1], sym)
 end
 
 generator['ord_exp'] = function(self, node, sym)
@@ -364,27 +436,12 @@ end
 
 generator['literal'] = function(self, node, sym, is_only_child)
     local literal_str = node[1]
-    local literal_lpeg = self:unique_lex(literal_str, sym, is_only_child)
-
-    if sym:is_lex() or not node.captured then
-        return add_SKIP(literal_lpeg, sym)
-    else
-        return add_SKIP(lp.Ct( from_tag('token') * lp.C(literal_lpeg) ), sym)
-    end
+    return self:lit_to_lpeg(literal_str, sym, node.captured, is_only_child)
 end
 
 generator['keyword'] = function(self, node, sym, is_only_child)
     local literal_str = node[1]
-    local literal_lpeg = self:unique_lex(literal_str, sym, is_only_child)
-
-    -- Keep track of kwywords
-    self.keywords[literal_str] = true
-
-    local pattern = to_keyword(literal_lpeg)
-    if sym:is_syn() then
-        pattern = lp.Ct( from_tag('token') * lp.C(pattern) )
-    end
-    return add_SKIP(pattern, sym)
+    return self:kw_to_lpeg(literal_str, sym, is_only_child)
 end
 
 generator['class'] = function(self, node, sym)
@@ -434,7 +491,10 @@ M.annotate = function(input, actions)
     local generator = Generator:new(actions, literals)
     local syms = generator:get_syms(ast)
     generator:validate_syms(ast)
-    return generator, annotator.annotate(ast, syms, generator.init)
+
+    local annot = annotator.annotate(ast, syms, generator.init)
+    generator.annot = annot
+    return generator, annot
 end
 
 return M

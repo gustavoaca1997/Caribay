@@ -1,3 +1,5 @@
+local Set = require"Set"
+
 -- Sub annotators
 local sub_annotator = {}
 ----------------------------------------------------------------------------
@@ -14,74 +16,7 @@ local terminal_tags = {
 local function is_terminal(node)
     return terminal_tags[node.tag]
 end
-----------------------------------------------------------------------------
-----------------------------------Set Class---------------------------------
-----------------------------------------------------------------------------
-local Set = {}
 
-function Set:new(set)
-    set = set or {}
-    -- Inherit form `Set`
-    self.__index = self
-    setmetatable(set, self)
-    return set
-end
-
-function Set:copy()
-    local set = Set:new{}
-    for k, v in pairs(self) do
-        set[k] = v
-    end
-    return set
-end
-
-function Set:is_same(set1)
-    local ret = true
-    for k in pairs(self) do
-        ret = ret and set1[k]
-    end
-    for k in pairs(set1) do
-        ret = ret and self[k]
-    end
-    return ret
-end
-
-function Set:add(key)
-    local set = self:copy()
-    set[key] = true
-    return set
-end
-
-function Set:rm(key)
-    local set = self:copy()
-    set[key] = nil
-    return set
-end
-
-function Set:union(set1)
-    local set = self:copy()
-    for k, v in pairs(set1) do
-        set[k] = set[k] or v
-    end
-    return set
-end
-
-local function copy_set_table(t)
-    local ret = {}
-    for k, v in pairs(t) do
-        ret[k] = v:copy()
-    end
-    return ret
-end
-
-local function is_same_set_table(t1, t2)
-    local ret = true
-    for k, v1 in pairs(t1) do
-        local v2 = t2[k]
-        ret = ret and v1:is_same(v2)
-    end
-    return ret
-end
 ----------------------------------------------------------------------------
 ----------------------------Annotator Constructors--------------------------
 ----------------------------------------------------------------------------
@@ -98,6 +33,8 @@ function Annotator:new(ast, syms, init)
         init = assert(init),
         first = {},
         follow = {},
+        ocs = {},   -- ocurrences
+        is_uni_token_tab = {},  -- cache of is_uni_token
     }
 
     -- Inherit form `Annotator`
@@ -252,7 +189,7 @@ function Annotator:compute_all_follow()
 
     local follow_done = false
     while not follow_done do
-        local prev_follow = copy_set_table(self.follow)
+        local prev_follow = Set.copy_set_table(self.follow)
         -- For each rule compute FOLLOW set
         for idx, rule in ipairs(self.ast) do
             local lhs = rule[1]
@@ -264,16 +201,80 @@ function Annotator:compute_all_follow()
             end
         end
 
-        follow_done = is_same_set_table(prev_follow, self.follow)
+        follow_done = Set.is_same_set_table(prev_follow, self.follow)
     end
 end
+
+----------------------------------------------------------------------------
+----------------------------------------------------------------------------
+local function to_key(exp)
+    if exp.tag == 'literal' then
+        return "'" .. exp[1] .. "'"
+
+    elseif exp.tag == 'keyword' then
+        return "`" .. exp[1] .. "`"
+
+    elseif exp.tag == 'lex_sym' then
+        return exp[1]
+    end
+end
+
+function Annotator:compute_terminal_ocs(exp)
+    local key = to_key(exp)
+
+    if key then
+        self.ocs[key] = (self.ocs[key] or 0) + 1
+    else
+        for _, sub_exp in ipairs(exp) do
+            self:compute_terminal_ocs(sub_exp)
+        end
+    end
+end
+
+function Annotator:compute_all_terminal_ocs(exp)
+    -- For each rule, compute ocs
+    for idx, rule in pairs(self.ast) do
+        local sym_str = rule[1][1]
+        local sym = self.syms[sym_str]
+        
+        if sym:is_syn() then
+            self:compute_terminal_ocs(rule[2])
+        end
+    end
+end
+
+function Annotator:is_uni_token(token_key)
+    --[[
+        A lexical non-terminal A is unique when it appears in the right-hand
+        side of only one syntactical rule, and just once.
+    ]]
+    if not self.ocs[token_key] then
+        return false
+    elseif self.is_uni_token_tab[token_key] ~= nil then -- memoization
+        return self.is_uni_token_tab[token_key]
+    end
+
+    -- Count number of keys
+    local count = self.ocs[token_key]
+
+    -- It's unique token if there is only one LHS that uses it.
+    local ret = token_key ~= 'SKIP' and token_key ~= 'COMMENT' and count == 1
+    self.is_uni_token_tab[token_key] = ret
+    return ret
+end
+
+----------------------------------------------------------------------------
+----------------------------------------------------------------------------
+
 
 return {
     annotate = function(ast, syms, init)
         local annot = Annotator:new(ast, syms, init)
         annot:compute_all_first()
         annot:compute_all_follow()
+        annot:compute_all_terminal_ocs()
         return annot
     end,
     END_TOKEN = END_TOKEN,
+    to_key = to_key,
 }
