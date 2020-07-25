@@ -1,6 +1,7 @@
 local assertions = require"test.assertions"
 assert:register("assertion", "contains_error", assertions.contains_error)
 assert:register("assertion", "same_ast", assertions.same_ast)
+assert:register('assertion', "has_lab", assertions.has_lab)
 
 context("Generator", function()
     setup(function()
@@ -21,7 +22,7 @@ context("Generator", function()
                     local parser2 = generator.gen(src2)
                     
                     assert.are.same({ tag = 'ALPHA_NUM', pos = 1, '8aBC3' }, parser1:match('8aBC3'))   
-                    assert.are.same({ tag = 'alpha_num', pos = 1, '8', 'a', 'B', 'C', '3' }, parser2:match('8aBC3'))   
+                    assert.are.same({ tag = 'alpha_num', pos = 1, '8', 'a', 'B', 'C', '3' }, parser2:match('8aBC3')) 
                 end)
     
                 test("a captured literal", function()
@@ -78,11 +79,9 @@ context("Generator", function()
                     }
                     assert.are.same(expected, parser:match(' -> a <- '))
     
-                    assert.is.falsy(parser:match('->a<--'))
-                    assert.is.falsy(parser:match('->a<--'))
-                    assert.is.falsy(parser:match('->a<--'))
-                    assert.is.falsy(parser:match('->aa<--'))
-                    assert.is.falsy(parser:match('-> b <'))
+                    assert.has_lab(parser, '->a<--', 'fail', 6)
+                    assert.has_lab(parser, '->aa<--', 's_<-', 4)
+                    assert.has_lab(parser, '-> b <', 's_a', 4)
                 end)
     
                 test("a not captured literal between two captured literals I", function()
@@ -142,6 +141,9 @@ context("Generator", function()
                         },
                     }
                     assert.are.same(expected, parser:match(' {  x } '))
+
+                    assert.has_lab(parser, '{   x', 's_}', 6)
+                    assert.has_lab(parser, '{ }', 's_x', 3)
                 end)
     
                 test("a backslash", function()
@@ -153,6 +155,8 @@ context("Generator", function()
                         \ta
                     ]]
                     assert.is.truthy(parser:match(input))
+                    assert.has_lab(parser, [[\t]], 's_a', 3)
+
                 end)
     
                 test("an ordered choice of literals", function()
@@ -184,7 +188,7 @@ context("Generator", function()
                     assert.is.truthy(parser:match('aabb   '))
                     assert.is.truthy(parser:match('   ab'))
                     assert.is.truthy(parser:match('   aaaaabbbbb   '))
-                    assert.is.falsy(parser:match('   aaaaabbb bb   '))
+                    assert.is.falsy(parser:match('   aaaaabbb bb   '))                    
                 end)
     
                 test("sequences as ordered choices", function()
@@ -206,6 +210,12 @@ context("Generator", function()
                     expected[1][1] = 'c'
                     assert.same_ast(expected, parser:match('&c'))
                     assert.same_ast(expected, parser:match('&   c  '))
+
+                    assert.has_lab(parser, ' a ', 's_!', 4)
+                    assert.has_lab(parser, ' {b ) ', 's_}', 5)
+                    assert.has_lab(parser, '{c} ', 's_b', 2)
+                    assert.has_lab(parser, '&', 's_c', 2)
+
                 end)
     
                 test("usage of initial automatic SKIP", function()
@@ -251,9 +261,8 @@ context("Generator", function()
                     assert.are.same(expected, parser:match('  {{  {   x } }   }'))
                     assert.same_ast({ tag = 's', { tag = 'token', 'x' } }, parser:match('x'))
     
-                    assert.is.falsy(parser:match('{ x'))
-                    assert.is.falsy(parser:match('{ x'))
-                    assert.is.falsy(parser:match('{  }'))
+                    assert.has_lab(parser, '{  }', 's_s', 4)
+                    assert.has_lab(parser, '{ x', 's_}', 4)
                 end)
             end)
     
@@ -286,11 +295,11 @@ context("Generator", function()
                 assert.same_ast(expected, parser:match('(p)'))
                 assert.same_ast(expected, parser:match('( p)   '))
     
-                assert.are.falsy(parser:match('{ p }'))
-                assert.are.falsy(parser:match('{  {p }'))
-                assert.are.falsy(parser:match('( b )'))
-                assert.are.falsy(parser:match('{ p )'))
-                assert.are.falsy(parser:match('( b }'))
+                assert.has_lab(parser, '{ p }', 'between_brackets_b', 3)
+                assert.has_lab(parser, '{  {b }', 'between_brackets_b', 4)
+                assert.has_lab(parser, '( b )', 'between_parentheses_p', 3)
+                assert.has_lab(parser, '{ b )', 'between_brackets_}', 5)
+                assert.has_lab(parser, '( p }', 'between_parentheses_)', 5)
             end)
     
             test("two trivial lexical rules and one initial syntactic rule", function()
@@ -309,7 +318,7 @@ context("Generator", function()
                 assert.same_ast(expected, parser:match('GustavoCastellanos'))
                 assert.same_ast(expected, parser:match('Gustavo Castellanos'))
                 assert.same_ast(expected, parser:match('   Gustavo    Castellanos'))
-                assert.is.falsy(parser:match('GustavoC astellanos'))
+                assert.has_lab(parser, 'GustavoC astellanos', 'full_name_LAST', 8)
             end)
     
             test("and predicate", function()
@@ -325,12 +334,15 @@ context("Generator", function()
                 assert.is.truthy(parser:match('aaaabbbbcccc  '))
                 assert.is.truthy(parser:match(' abc'))
                 assert.is.truthy(parser:match('  aaabbbccc'))
+
+                -- TODO: Test labels
+
                 assert.is.falsy(parser:match('aaabbbbccc'))
                 assert.is.falsy(parser:match('aaabbbcc'))
                 assert.is.falsy(parser:match('aa abbbccc'))
             end)
     
-            test("some fragments", function()
+            test("list of numbers", function()
                 local src = [[
                     list <- NUMBER+
                     NUMBER <- INT / FLOAT
@@ -404,7 +416,7 @@ context("Generator", function()
             test("its own ID_START rule", function()
                 local src = [[
                     s <- `print` ID
-                    ID_START <- '_'? [a-zA-Z]+                
+                    ID_START <- '_'? [a-zA-Z]+          
                 ]]
                 local parser = generator.gen(src)
     
@@ -415,7 +427,7 @@ context("Generator", function()
                     { tag = 'ID', '_private_attr' },
                 }
                 assert.same_ast(expected, parser:match(input))
-                assert.is.falsy(parser:match("print 0is_boolean"))
+                assert.has_lab(parser, 'print 0is_boolean', 's_ID', 7)
             end)
     
             test("its own ID_END rule", function()
@@ -432,7 +444,6 @@ context("Generator", function()
                     { tag = 'ID', 'isNumber?' },
                 }
                 assert.same_ast(expected, parser:match(input))
-                assert.is.falsy(parser:match("print is_boolean?"))
             end)
     
             test("its own ID_START and ID_END rules", function()
@@ -487,6 +498,11 @@ context("Generator", function()
                     },
                 }
                 assert.same_ast(expected, parser:match(input))
+
+                -- assert.has_lab(parser, 'x 10', 'assign_=', 3) -- TODO: Improvement: Unique Path
+                assert.has_lab(parser, 'x = print 2', 'assign_INT', 5)
+                assert.has_lab(parser, 'print 2', 'print_ID', 7)
+                assert.has_lab(parser, 'print x = 10', 'fail', 9)
             end)
     
             test("keyword rules and its own SKIP rule", function()
@@ -521,6 +537,9 @@ context("Generator", function()
                     },
                 }
                 assert.are.same(expected, parser:match(input))
+                assert.has_lab(parser, 'vector3 vector3D ;;.; vector3D.2', 'fail', 20)
+                assert.has_lab(parser, 'vector1 3dvector', 'init_ID', 9)
+                -- assert.has_lab(parser, 'vector3D 2', 'idx_.', 10) -- TODO: Improvement: Unique Path
             end)
     
             test('syntactic fragment', function()
@@ -614,6 +633,7 @@ context("Generator", function()
                     { tag = 'NUMBER', '9' },
                 }
                 assert.same_ast(expected, parser:match(input))
+                assert.has_lab(parser, '543 , x', 's_NUMBER', 7)
             end)
     
             test("a syntactic named group", function()

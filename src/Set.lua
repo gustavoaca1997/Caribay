@@ -47,6 +47,14 @@ function Set:union(set1)
     return set
 end
 
+function Set:disjoint(set1)
+    local ret = false
+    for k in pairs(self) do
+        ret = ret or set1[k]
+    end
+    return not ret
+end
+
 Set.copy_set_table = function (t)
     local ret = {}
     for k, v in pairs(t) do

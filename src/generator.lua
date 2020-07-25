@@ -114,69 +114,128 @@ end
 ----------------------------------------------------------------------------
 --------------------------- Algorithm Unique -------------------------------
 ----------------------------------------------------------------------------
-
-function Generator:calck(ast_exp ,flw)
-    --[[
-        It is used to update the FOLLOW set associated with a
-        parsing expression.
-    ]]
-
-    local first = self.annot:get_first(ast_exp)
-    if flw['%e'] then
-        first['%e'] = nil
-        return first:union(flw)
-    else
-        return first
-    end
-end
-
-function Generator:add_label(ast_node, flw, sym, is_only_child)
+function Generator:add_label(pattern, suf, flw, sym)
     --[[
         Receives a parsing expression p to annotate and its associated F OLLOW set f lw.
         Function addlab associates a label l to p and also builds a recovery expression
-        for l based on f lw
+        for l based on flw
     ]]
 
-    local tag = ast_node.tag
-    local pattern = self:to_lpeg(ast_node, sym, is_only_child)
-
-    -- If this is the first label with this name, append a 1,
-    -- otherwise append correct number.
-    local label = sym.sym_str .. '_' .. tag
+    -- If this is not the first label with this name,
+    -- append correct number.
+    local label = sym.sym_str .. '_' .. suf
     if self.labels[label] then
         local new_no = self.labels[label]+1
         self.labels[label] = new_no
         label = label .. new_no
     else
         self.labels[label] = 1
-        label = label .. 1
     end
-
-    -- Create ordered choice for the follow set
-    local flw_choice
-    for k, _ in flw do
-        local fst_char = k:sub(1,1)
-
-        local elem
-        if fst_char == '`' then             -- it's a keyword
-            elem = self:kw_to_lpeg(k, sym)
-
-        elseif fst_char == '"' or fst_char == "'" then -- it's a literal
-            elem = self:lit_to_lpeg(k, sym) 
-
-        elseif is_lex_sym_str(k) then       -- it's a lex symbol
-            elem = self:lex_to_lpeg(k, sym)
-        else                                -- it's a syn symbol
-            elem = self:syn_to_lpeg(k, sym)
-        end
-
-        flw_choice = (flw_choice and flw_choice + elem) or elem
-    end
-
-    -- Recovery rule
-    self.grammar[label] = (-flw_choice * lp.P(1))^0
-    -- pattern^label
+    -- print('add label', label)
     return pattern + lp.T(label)
+end
+
+function Generator:lab_exp(ast_exp, seq, after_u, flw, sym)
+    --[[
+        Annotates the right-hand side, a
+        parsing expression, of each syntactical rule of the grammar.
+
+        ast_exp:    an AST expression.
+        seq:        a boolean value indicating whether the current concatenation have already
+                    matched at least one token.
+        afterU:     a boolean value indicating whether the current right-hand side have already 
+                    matched at least one unique lexical non-terminal.
+        flw:        the F OLLOW set associated with ast_exp.
+    ]]
+
+    local annot = self.annot
+    local first = annot:get_first(ast_exp)
+    local tag = ast_exp.tag
+
+    local suf
+    if tag == 'literal' or tag == 'keyword' or tag == 'lex_sym' or tag == 'syn_sym' then
+        suf = ast_exp[1]
+    else
+        suf = tag
+    end
+
+    local pattern = self:to_lpeg(ast_exp, sym)
+
+    if not first['%e'] and seq and after_u then
+        return self:add_label(pattern, suf, flw, sym)
+    elseif tag == 'seq_exp' then
+        return self:lab_seq_exp(ast_exp, seq, after_u, flw, sym)
+    elseif tag == 'ord_exp' then
+        return self:lab_ord_exp(ast_exp, seq, after_u, flw, sym)
+    elseif tag == 'star_exp' then
+        return self:lab_star_exp(ast_exp[1], seq, after_u, flw, sym)
+    else
+        return pattern
+    end
+end
+
+function Generator:lab_seq_exp(seq_arr, seq, after_u, flw, sym)
+    --[[
+        Annotates a sequencial expression.
+    ]]
+
+    local sub_exp1 = seq_arr[1]
+    local annot = self.annot
+
+    if #seq_arr == 1 then   -- If it is the only element in the sequence
+        return self:lab_exp(sub_exp1, seq, after_u, flw, sym)
+    else
+        local first1 = annot:get_first(sub_exp1)
+        local seq_arry = {table.unpack(seq_arr, 2)}
+        local flwx = annot:calck(seq_arry, flw, 'seq')
+
+        local px = self:lab_exp(sub_exp1, seq, after_u, flwx, sym)
+        local py = self:lab_seq_exp(
+            seq_arry, 
+            seq or not first1['%e'], 
+            after_u or annot:match_uni(sub_exp1), 
+            flw,
+            sym
+        )
+
+        return px * py
+    end
+end
+
+function Generator:lab_ord_exp(ord_arr, seq, after_u, flw, sym)
+    --[[
+        Annotates an ordered choice.
+    ]]
+
+    local sub_exp1 = ord_arr[1]
+    local annot = self.annot
+
+    if #ord_arr == 1 then   -- If it is the only element in the sequence
+        return self:lab_exp(sub_exp1, seq, after_u, flw, sym)
+    else
+        local first1 = annot:get_first(sub_exp1)
+        local ord_arry = {table.unpack(ord_arr, 2)}
+        local disjoint = first1:disjoint(annot:calck(ord_arry, flw, 'ord'))
+
+        local px = self:lab_exp(sub_exp1, false, disjoint and after_u, flw, sym)
+        local py = self:lab_ord_exp(ord_arry, false, after_u, flw, sym)
+
+        local ord_first = annot:get_ord_first(ord_arr)
+        local pattern = px + py
+
+        if seq and not ord_first['%e'] and after_u then
+            return self:add_label(pattern, 'ord_exp', flw, sym)
+        else
+            return pattern
+        end
+    end
+end
+
+function Generator:lab_star_exp(exp, seq, after_u, flw, sym)
+    local annot = self.annot
+    local first = annot:get_first(exp)
+    local disjoint = first:disjoint(flw)
+    return self:lab_exp(exp, false, disjoint and after_u, first:union(flw), sym)^0
 end
 
 ----------------------------------------------------------------------------
@@ -359,7 +418,16 @@ generator['rule'] = function(self, node)
     local sym = self.syms[sym_str] -- Symbol 'object'
     local rhs = node[2]
     local is_only_child = rhs.tag == 'literal' or rhs.tag == 'keyword'
-    local rhs_lpeg = self:to_lpeg(rhs, sym, is_only_child)
+    
+    local rhs_lpeg
+    
+    if sym:is_lex() then
+        rhs_lpeg = self:to_lpeg(rhs, sym, is_only_child)
+    else
+        -- Annotate RHS if it's a syntactic rule
+        local annot = self.annot
+        rhs_lpeg = self:lab_exp(rhs, false, false, annot.follow[sym_str], sym)
+    end
 
     if sym.is_keyword then
         rhs_lpeg = to_keyword(rhs_lpeg)

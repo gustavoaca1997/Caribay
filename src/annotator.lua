@@ -1,3 +1,7 @@
+--[[
+    This module helps Generator class to annotate its grammar.
+]]
+
 local Set = require"Set"
 
 -- Sub annotators
@@ -24,6 +28,8 @@ local Annotator = {}
 
 function Annotator:new(ast, syms, init)
     --[[
+        This class helps to run Algorithm Unique
+
         `ast`:  Abstract Syntactic Tree from the parser.
         `syms`: Dictionary of symbols objects from the generator.
     ]]
@@ -60,6 +66,14 @@ function Annotator:get_seq_first(exps)
     end
 end
 
+function Annotator:get_ord_first(exp)
+    local ret = Set:new{}
+    for _, sub_exp in ipairs(exp) do
+        ret = ret:union(self:get_first(assert(sub_exp)))
+    end
+    return ret
+end
+
 function Annotator:get_first(exp)
     if exp.tag == 'literal' then
         return Set:new{ ["'" .. exp[1] .. "'"] = true }
@@ -74,11 +88,7 @@ function Annotator:get_first(exp)
         return self.first[exp[1]]
 
     elseif exp.tag == 'ord_exp' then
-        local ret = Set:new{}
-        for _, sub_exp in ipairs(exp) do
-            ret = ret:union(self:get_first(assert(sub_exp)))
-        end
-        return ret
+        return self:get_ord_first(exp)
 
     elseif exp.tag == 'seq_exp' then
         return self:get_seq_first(exp)
@@ -207,7 +217,10 @@ end
 
 ----------------------------------------------------------------------------
 ----------------------------------------------------------------------------
-local function to_key(exp)
+local function token_to_key(exp)
+    --[[
+        Transforms AST token into a key 
+    ]]
     if exp.tag == 'literal' then
         return "'" .. exp[1] .. "'"
 
@@ -219,8 +232,11 @@ local function to_key(exp)
     end
 end
 
+----------------------------------------------------------------------------
+----------------------------------------------------------------------------
+
 function Annotator:compute_terminal_ocs(exp)
-    local key = to_key(exp)
+    local key = token_to_key(exp)
 
     if key then
         self.ocs[key] = (self.ocs[key] or 0) + 1
@@ -243,6 +259,9 @@ function Annotator:compute_all_terminal_ocs(exp)
     end
 end
 
+----------------------------------------------------------------------------
+----------------------------------------------------------------------------
+
 function Annotator:is_uni_token(token_key)
     --[[
         A lexical non-terminal A is unique when it appears in the right-hand
@@ -263,6 +282,60 @@ function Annotator:is_uni_token(token_key)
     return ret
 end
 
+function Annotator:calck(ast_exp, flw, opt)
+    --[[
+        It is used to update the FOLLOW set associated with a
+        parsing expression.
+    ]]
+
+    local first
+    if not opt then
+        first = self:get_first(ast_exp)
+    elseif opt == 'seq' then
+        first = self:get_seq_first(ast_exp)
+    elseif opt == 'ord' then
+        first = self:get_ord_first(ast_exp)
+    end
+
+    if flw['%e'] then
+        first['%e'] = nil
+        return first:union(flw)
+    else
+        return first
+    end
+end
+
+function Annotator:match_uni(ast_exp)
+    --[[
+        Determines whether a parsing expression p matches
+        at least one unique lexical non-terminal or not.
+    ]]
+    
+    local tag = ast_exp.tag
+    local key = token_to_key(ast_exp)
+    if key then
+        return self:is_uni_token(key)
+    elseif tag == 'seq_exp' then
+        local ret = false
+        for idx, sub_exp in ipairs(ast_exp) do
+            ret = ret or self:match_uni(sub_exp)
+            if ret then break end
+        end
+        return ret
+    elseif tag == 'ord_exp' then
+        local ret = true
+        for idx, sub_exp in ipairs(ast_exp) do
+            ret = ret and self:match_uni(sub_exp)
+            if not ret then break end
+        end
+        return ret
+    elseif tag == 'rep_exp' then
+        return self:match_uni(ast_exp[1])
+    else
+        return false
+    end
+end
+
 ----------------------------------------------------------------------------
 ----------------------------------------------------------------------------
 
@@ -276,5 +349,5 @@ return {
         return annot
     end,
     END_TOKEN = END_TOKEN,
-    to_key = to_key,
+    token_to_key = token_to_key,
 }

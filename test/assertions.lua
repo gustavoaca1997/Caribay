@@ -39,4 +39,17 @@ M.same_ast = function(state, arguments)
     return traverse(expectedAST, outputAST)
 end
 
+M.has_lab = function(state, arguments)
+    local parser, input, expected_lab, expected_pos = table.unpack(arguments)
+    local ou, lab, pos = parser:match(input)
+    if out then
+        error(input .. ": Not error thrown")
+    elseif expected_lab ~= lab then
+        error(input .. ": Expected label " .. expected_lab .. " but got " .. lab)
+    elseif expected_pos and expected_pos ~= pos then
+        error(input .. ": Expected position " .. expected_pos .. " but got " .. pos)
+    end
+    return true
+end
+
 return M
