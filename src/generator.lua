@@ -410,6 +410,23 @@ function Generator:kw_to_lpeg(literal_str, sym, is_only_child )
 end
 
 ----------------------------------------------------------------------------
+----------------------------------------------------------------------------
+
+function Generator:get_labs_arr()
+    local ret = {}
+    for lab_str in pairs(self.labels) do
+        ret[#ret+1] = lab_str
+        if self.labels[lab_str] > 1 then
+            for i=2,self.labels[lab_str] do
+                ret[#ret+1] = lab_str .. '_' .. i
+            end
+        end
+    end
+    table.sort(ret)
+    return ret
+end
+
+----------------------------------------------------------------------------
 ------------------- Generators for each AST tag ----------------------------
 ----------------------------------------------------------------------------
 
@@ -551,7 +568,10 @@ M.gen = function (input, actions)
     end
     generator:gen_auxiliars()
 
-    return lp.P(generator.grammar) * -1
+    local parser = lp.P(generator.grammar) * -1
+    local labs_arr = generator:get_labs_arr()
+
+    return parser, labs_arr
 end
 
 M.annotate = function(input, actions)

@@ -50,7 +50,7 @@ context("Generator", function()
                     local src = [[
                         s <- '->' "a" '<-'
                     ]]
-                    local parser = generator.gen(src)
+                    local parser, labs_arr = generator.gen(src)
     
                     local expected = {
                         tag = 's', pos = 1,
@@ -79,6 +79,7 @@ context("Generator", function()
                     }
                     assert.are.same(expected, parser:match(' -> a <- '))
     
+                    assert.are.same({'s_<-', 's_a'}, labs_arr)
                     assert.has_lab(parser, '->a<--', 'fail', 6)
                     assert.has_lab(parser, '->aa<--', 's_<-', 4)
                     assert.has_lab(parser, '-> b <', 's_a', 4)
@@ -88,7 +89,7 @@ context("Generator", function()
                     local src = [[
                         s <- "{" 'x' "}"
                     ]]
-                    local parser = generator.gen(src)
+                    local parser, labs_arr = generator.gen(src)
     
                     local expected = {
                         tag = 's', pos = 1,
@@ -142,6 +143,7 @@ context("Generator", function()
                     }
                     assert.are.same(expected, parser:match(' {  x } '))
 
+                    assert.are.same({'s_x', 's_}'}, labs_arr)
                     assert.has_lab(parser, '{   x', 's_}', 6)
                     assert.has_lab(parser, '{ }', 's_x', 3)
                 end)
@@ -150,11 +152,12 @@ context("Generator", function()
                     local src = [[
                         s <- "\\t" "a"
                     ]]
-                    local parser = generator.gen(src)
+                    local parser, labs_arr = generator.gen(src)
                     local input = [[
                         \ta
                     ]]
                     assert.is.truthy(parser:match(input))
+                    assert.are.same({'s_a'}, labs_arr)
                     assert.has_lab(parser, [[\t]], 's_a', 3)
 
                 end)
@@ -195,7 +198,7 @@ context("Generator", function()
                     local src = [[
                         s <- "a" '!' / '{' "b" '}' / '&' "c"
                     ]]
-                    local parser = generator.gen(src)
+                    local parser, labs_arr = generator.gen(src)
                     local expected = {
                         tag = 's',
                         { tag = 'token', 'a' }
@@ -211,6 +214,7 @@ context("Generator", function()
                     assert.same_ast(expected, parser:match('&c'))
                     assert.same_ast(expected, parser:match('&   c  '))
 
+                    assert.are.same({'s_!', 's_b', 's_c', 's_}'}, labs_arr)
                     assert.has_lab(parser, ' a ', 's_!', 4)
                     assert.has_lab(parser, ' {b ) ', 's_}', 5)
                     assert.has_lab(parser, '{c} ', 's_b', 2)
@@ -222,11 +226,13 @@ context("Generator", function()
                     local src = [[
                         s <- "a" '!' / '{' "b" '}' / '&' "c"
                     ]]
-                    local parser = generator.gen(src)
+                    local parser, labs_arr = generator.gen(src)
                     local expected = {
                         tag = 's',
                         { tag = 'token', 'a' }
                     }
+                    assert.are.same({'s_!', 's_b', 's_c', 's_}'}, labs_arr)
+
                     assert.same_ast(expected, parser:match(' a!'))
                     assert.same_ast(expected, parser:match('     a  !'))
     
@@ -243,7 +249,7 @@ context("Generator", function()
                     local src = [[
                         s <- '{' s '}' / "x"
                     ]]
-                    local parser = generator.gen(src)
+                    local parser, labs_arr = generator.gen(src)
                     
                     local expected = {
                         tag = 's', pos = 3,
@@ -261,6 +267,7 @@ context("Generator", function()
                     assert.are.same(expected, parser:match('  {{  {   x } }   }'))
                     assert.same_ast({ tag = 's', { tag = 'token', 'x' } }, parser:match('x'))
     
+                    assert.are.same({'s_s', 's_}'}, labs_arr)
                     assert.has_lab(parser, '{  }', 's_s', 4)
                     assert.has_lab(parser, '{ x', 's_}', 4)
                 end)
@@ -273,7 +280,7 @@ context("Generator", function()
                     between_brackets    <- '{' "b" '}'
                     between_parentheses <- '(' "p" ')' 
                 ]]
-                local parser = generator.gen(src)
+                local parser, labs_arr = generator.gen(src)
     
                 local expected = {
                     tag = 's',
@@ -295,6 +302,8 @@ context("Generator", function()
                 assert.same_ast(expected, parser:match('(p)'))
                 assert.same_ast(expected, parser:match('( p)   '))
     
+                assert.are.same({'between_brackets_b', 'between_brackets_}', 
+                    'between_parentheses_)', 'between_parentheses_p'}, labs_arr)
                 assert.has_lab(parser, '{ p }', 'between_brackets_b', 3)
                 assert.has_lab(parser, '{  {b }', 'between_brackets_b', 4)
                 assert.has_lab(parser, '( b )', 'between_parentheses_p', 3)
@@ -308,7 +317,7 @@ context("Generator", function()
                     FIRST <- 'Gustavo'
                     LAST <- 'Castellanos'
                 ]]
-                local parser = generator.gen(src)
+                local parser, labs_arr = generator.gen(src)
     
                 local expected = {
                     tag = 'full_name',
@@ -318,6 +327,8 @@ context("Generator", function()
                 assert.same_ast(expected, parser:match('GustavoCastellanos'))
                 assert.same_ast(expected, parser:match('Gustavo Castellanos'))
                 assert.same_ast(expected, parser:match('   Gustavo    Castellanos'))
+
+                assert.are.same({'full_name_LAST'}, labs_arr)
                 assert.has_lab(parser, 'GustavoC astellanos', 'full_name_LAST', 8)
             end)
     
@@ -328,7 +339,7 @@ context("Generator", function()
                     A <- 'a' A? 'b'
                     B <- 'b' B? 'c'
                 ]]
-                local parser = generator.gen(src)
+                local parser, labs_arr = generator.gen(src)
     
                 assert.is.truthy(parser:match('aaabbbccc'))
                 assert.is.truthy(parser:match('aaaabbbbcccc  '))
@@ -336,6 +347,7 @@ context("Generator", function()
                 assert.is.truthy(parser:match('  aaabbbccc'))
 
                 -- TODO: Test labels
+                assert.are.same({'s_B'}, labs_arr)
 
                 assert.is.falsy(parser:match('aaabbbbccc'))
                 assert.is.falsy(parser:match('aaabbbcc'))
@@ -418,7 +430,7 @@ context("Generator", function()
                     s <- `print` ID
                     ID_START <- '_'? [a-zA-Z]+          
                 ]]
-                local parser = generator.gen(src)
+                local parser, labs_arr = generator.gen(src)
     
                 local input = 'print _private_attr'
                 local expected = {
@@ -427,6 +439,7 @@ context("Generator", function()
                     { tag = 'ID', '_private_attr' },
                 }
                 assert.same_ast(expected, parser:match(input))
+                assert.are.same({'s_ID'}, labs_arr)
                 assert.has_lab(parser, 'print 0is_boolean', 's_ID', 7)
             end)
     
@@ -435,7 +448,7 @@ context("Generator", function()
                     s <- `print` ID
                     ID_END <- [a-zA-Z?]+                
                 ]]
-                local parser = generator.gen(src)
+                local parser, labs_arr = generator.gen(src)
     
                 local input = 'print isNumber?'
                 local expected = {
@@ -443,6 +456,7 @@ context("Generator", function()
                     { tag = 'token', 'print' },
                     { tag = 'ID', 'isNumber?' },
                 }
+                assert.are.same({'s_ID'}, labs_arr)
                 assert.same_ast(expected, parser:match(input))
             end)
     
@@ -452,7 +466,7 @@ context("Generator", function()
                     ID_START <- '_'? [a-zA-Z]+
                     ID_END <- [a-zA-Z?]+                
                 ]]
-                local parser = generator.gen(src)
+                local parser, labs_arr = generator.gen(src)
     
                 local input = 'print _isNumber?'
                 local expected = {
@@ -461,6 +475,7 @@ context("Generator", function()
                     { tag = 'ID', '_isNumber?' },
                 }
                 assert.same_ast(expected, parser:match(input))
+                assert.are.same({'s_ID'}, labs_arr)
                 assert.is.falsy(parser:match("print _is_boolean?"))
             end)
     
@@ -471,7 +486,7 @@ context("Generator", function()
                     INT <- %d+
                     print <- `print` ID
                 ]]
-                local parser = generator.gen(src)
+                local parser, labs_arr = generator.gen(src)
     
                 local input = 'x = 10 print x printx = 20 print printx'
                 local expected = {
@@ -499,6 +514,7 @@ context("Generator", function()
                 }
                 assert.same_ast(expected, parser:match(input))
 
+                assert.are.same({'assign_INT', 'print_ID'}, labs_arr)
                 -- assert.has_lab(parser, 'x 10', 'assign_=', 3) -- TODO: Improvement: Unique Path
                 assert.has_lab(parser, 'x = print 2', 'assign_INT', 5)
                 assert.has_lab(parser, 'print 2', 'print_ID', 7)
@@ -516,7 +532,7 @@ context("Generator", function()
     
                     SKIP <- (' ' / '\n' / ';')*
                 ]]
-                local parser = generator.gen(src)
+                local parser, labs_arr = generator.gen(src)
     
                 local input = [[
                 vector3 vector3D
@@ -537,6 +553,8 @@ context("Generator", function()
                     },
                 }
                 assert.are.same(expected, parser:match(input))
+
+                assert.are.same({ 'idx_INT', 'init_ID',}, labs_arr)
                 assert.has_lab(parser, 'vector3 vector3D ;;.; vector3D.2', 'fail', 20)
                 assert.has_lab(parser, 'vector1 3dvector', 'init_ID', 9)
                 -- assert.has_lab(parser, 'vector3D 2', 'idx_.', 10) -- TODO: Improvement: Unique Path
@@ -617,7 +635,7 @@ context("Generator", function()
                     COMMENT <- '--' [^%nl]*
                     NUMBER <- %d+
                 ]]
-                local parser = generator.gen(src)
+                local parser, labs_arr = generator.gen(src)
     
                 local input = [[
                     -- a test
@@ -633,6 +651,8 @@ context("Generator", function()
                     { tag = 'NUMBER', '9' },
                 }
                 assert.same_ast(expected, parser:match(input))
+
+                assert.are.same({'s_NUMBER',}, labs_arr)
                 assert.has_lab(parser, '543 , x', 's_NUMBER', 7)
             end)
     
@@ -655,8 +675,14 @@ context("Generator", function()
         test("from JSON grammar", function()
             local f = assert(io.open("./test/expected/json/grammar.peg", "r"))
             local src = f:read("a")
-            local parser = generator.gen(src)
+            local parser, labs_arr = generator.gen(src)
             f:close()
+
+            assert.are.same({
+                'array_]',
+                'object_}', 
+                'pair_value',
+            }, labs_arr)
     
             local f1 = assert(io.open("./test/expected/json/examples/example1.json"))
             local input = f1:read("a")
@@ -668,7 +694,7 @@ context("Generator", function()
         test("from Lua grammar", function()
             local f = assert(io.open("./test/expected/lua/grammar.peg", "r"))
             local src = f:read("a")
-            local parser = generator.gen(src, {
+            local parser, labs_arr = generator.gen(src, {
                 check_eq = function(subject, pos, closing, opening)
                     return #closing[1] == #opening[1]
                 end,
@@ -679,6 +705,8 @@ context("Generator", function()
             })
             f:close()
     
+            --TODO: Test `labs_arr`
+
             -- Case 1:
             local input = [[
                 _x_10 = 10
