@@ -669,6 +669,20 @@ context("Generator", function()
                     { tag = "token", "=" },
                 }, parser:match("===="))
             end)
+
+            test("an annotable ordered choice and repeated annotable token", function()
+                local src = [[
+                    s <- '>' '|' (ID+ / NUMBER+) (';'* / ','*) '|'
+                    NUMBER <- %d+
+                ]]
+                local parser, labs_arr = generator.gen(src)
+                assert.are.same({
+                    's_ord_exp', 
+                    's_|', 
+                    's_|_2'
+                }, labs_arr)
+                assert.is.truthy(parser:match('> | epa32 blabla bla_bla ;;;; |'))
+            end)
            
         end)
     
