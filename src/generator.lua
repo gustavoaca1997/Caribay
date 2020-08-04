@@ -568,7 +568,7 @@ M.gen = function (input, actions)
     end
     generator:gen_auxiliars()
 
-    local parser = lp.P(generator.grammar) * -1
+    local parser = lp.P(generator.grammar) * (lp.P(-1) + lp.T('EOF') )
     local labs_arr = generator:get_labs_arr()
 
     return parser, labs_arr

@@ -80,7 +80,7 @@ context("Generator", function()
                     assert.are.same(expected, parser:match(' -> a <- '))
     
                     assert.are.same({'s_<-', 's_a'}, labs_arr)
-                    assert.has_lab(parser, '->a<--', 'fail', 6)
+                    assert.has_lab(parser, '->a<--', 'EOF', 6)
                     assert.has_lab(parser, '->aa<--', 's_<-', 4)
                     assert.has_lab(parser, '-> b <', 's_a', 4)
                 end)
@@ -518,7 +518,7 @@ context("Generator", function()
                 -- assert.has_lab(parser, 'x 10', 'assign_=', 3) -- TODO: Improvement: Unique Path
                 assert.has_lab(parser, 'x = print 2', 'assign_INT', 5)
                 assert.has_lab(parser, 'print 2', 'print_ID', 7)
-                assert.has_lab(parser, 'print x = 10', 'fail', 9)
+                assert.has_lab(parser, '= x = 10', 'fail', 1)
             end)
     
             test("keyword rules and its own SKIP rule", function()
@@ -555,7 +555,8 @@ context("Generator", function()
                 assert.are.same(expected, parser:match(input))
 
                 assert.are.same({ 'idx_INT', 'init_ID',}, labs_arr)
-                assert.has_lab(parser, 'vector3 vector3D ;;.; vector3D.2', 'fail', 20)
+                assert.has_lab(parser, 'vector3D 2', 'fail', 10) -- NOTE: If algorithm is improved, the label should be `idx_.`
+                assert.has_lab(parser, 'vector3 vector3D ;;.; vector3D.2', 'EOF', 20)
                 assert.has_lab(parser, 'vector1 3dvector', 'init_ID', 9)
                 -- assert.has_lab(parser, 'vector3D 2', 'idx_.', 10) -- TODO: Improvement: Unique Path
             end)
