@@ -11,7 +11,7 @@ context("Generator", function()
         src_parser = require"caribay.parser"
     end)
 
-    context("generates a parser", function()
+    context("generates a parser (with possible labels)", function()
         context("from a grammar with", function()
             context("a rule with", function()
                 test("a repetition of character class", function()
@@ -271,6 +271,7 @@ context("Generator", function()
                     assert.has_lab(parser, '{  }', 's_s', 4)
                     assert.has_lab(parser, '{ x', 's_}', 4)
                 end)
+
             end)
     
             test("three syntactic rules", function()
@@ -346,7 +347,6 @@ context("Generator", function()
                 assert.is.truthy(parser:match(' abc'))
                 assert.is.truthy(parser:match('  aaabbbccc'))
 
-                -- TODO: Test labels
                 assert.are.same({'s_B'}, labs_arr)
 
                 assert.is.falsy(parser:match('aaabbbbccc'))
@@ -555,7 +555,7 @@ context("Generator", function()
                 assert.are.same(expected, parser:match(input))
 
                 assert.are.same({ 'idx_INT', 'init_ID',}, labs_arr)
-                assert.has_lab(parser, 'vector3D 2', 'fail', 10) -- NOTE: If algorithm is improved, the label should be `idx_.`
+                assert.has_lab(parser, 'vector3D 2', 'fail', 10) -- TODO: If algorithm is improved, the label should be `idx_.`
                 assert.has_lab(parser, 'vector3 vector3D ;;.; vector3D.2', 'EOF', 20)
                 assert.has_lab(parser, 'vector1 3dvector', 'init_ID', 9)
                 -- assert.has_lab(parser, 'vector3D 2', 'idx_.', 10) -- TODO: Improvement: Unique Path
@@ -828,6 +828,46 @@ context("Generator", function()
                 ]]
                 assert.is.falsy(parser:match(input))
             end)
+        end)
+    end)
+
+    -- This one only tests labels generated and not successfu
+    context("generates labels for a parser (using unique paths) with ", function()
+        pending("a disjoint ordered choice", function()
+            -- The alternatives of this choice are disjoint.
+            -- The choice must succeed, since that the start rule
+            -- must succeed.
+            -- After matching a symbol in the FIRST set of the the first
+            -- alternative the matching of first alternative must succeed.
+            -- As the choice must succeed, the last alternative must succeed
+            -- when we try to match it.
+            local src = [[
+                s <- 'a' 'c' / 'c' 'd'
+            ]]
+            local parser, labs_arr = generator.gen(src)
+            
+            assert.are.same({'s_c', 's_c_2', 's_d'}, labs_arr)
+            assert.has_lab(parser, 'a', 's_c', 2)
+            assert.has_lab(parser, 'a d', 's_c', 3)
+            assert.has_lab(parser, 'd', 'fail', 1)
+            assert.has_lab(parser, 'c', 's_d', 2)
+            assert.has_lab(parser, 'c c', 's_d', 3)
+        end)
+
+        pending("a not disjoint ordered choice", function()
+            -- The alternatives of this choice are not disjoint.
+            -- Given that the start rule must succeed, the choice
+            -- must succeed. Thus, the last alternative of this
+            -- choice must succeed.
+            local src = [[
+                s <- 'a' 'b' / 'a' 'c'
+            ]]
+            local parser, labs_arr = generator.gen(src)
+
+            assert.are.same({'s_a', 's_c', }, labs_arr)
+            assert.has_lab(parser, 'a', 's_c', 2)
+            assert.has_lab(parser, 'a d', 's_c', 3)
+            assert.has_lab(parser, 'c', 'fail', 1)
         end)
     end)
 
