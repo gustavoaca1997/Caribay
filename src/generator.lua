@@ -56,6 +56,7 @@ function Generator:new(actions, literals_map)
         syms = {},
         grammar = {},
         labels = {},
+        manual_labels = {},
         literals_patterns = M.unique_token_prefix(literals_map),
     }
 
@@ -114,12 +115,27 @@ end
 ----------------------------------------------------------------------------
 --------------------------- Algorithm Unique -------------------------------
 ----------------------------------------------------------------------------
-function Generator:add_label(pattern, suf, flw, sym)
+function Generator.create_lab_obj(seq, after_u, flw, sym)
+    return {
+        seq = seq,
+        after_u = after_u,
+        flw = flw,
+        sym = sym,
+    }
+end
+
+function Generator.unpack_lab_obj(lab_obj)
+    return lab_obj.seq, lab_obj.after_u, lab_obj.flw, lab_obj.sym
+end
+
+function Generator:add_label(pattern, suf, lab_obj)
     --[[
         Receives a parsing expression p to annotate and its associated F OLLOW set f lw.
         Function addlab associates a label l to p and also builds a recovery expression
         for l based on flw
     ]]
+
+    local _, _, flw, sym = Generator.unpack_lab_obj(lab_obj)
 
     -- If this is not the first label with this name,
     -- append correct number.
@@ -135,12 +151,14 @@ function Generator:add_label(pattern, suf, flw, sym)
     return pattern + lp.T(label)
 end
 
-function Generator:lab_exp(ast_exp, seq, after_u, flw, sym)
+function Generator:lab_exp(ast_exp, lab_obj)
     --[[
         Annotates the right-hand side, a
         parsing expression, of each syntactical rule of the grammar.
 
         ast_exp:    an AST expression.
+
+        lab_obj is an object with following fields:
         seq:        a boolean value indicating whether the current concatenation have already
                     matched at least one token.
         afterU:     a boolean value indicating whether the current right-hand side have already 
@@ -148,11 +166,14 @@ function Generator:lab_exp(ast_exp, seq, after_u, flw, sym)
         flw:        the F OLLOW set associated with ast_exp.
     ]]
 
+    local seq, after_u, flw, sym = Generator.unpack_lab_obj(lab_obj)
+
     local annot = self.annot
     local first = annot:get_first(ast_exp)
     local tag = ast_exp.tag
-
     local suf
+
+    --If it's a manually inserted label
     if tag == 'literal' or tag == 'keyword' or tag == 'lex_sym' or tag == 'syn_sym' then
         suf = ast_exp[1]
     else
@@ -162,80 +183,91 @@ function Generator:lab_exp(ast_exp, seq, after_u, flw, sym)
     local pattern = self:to_lpeg(ast_exp, sym)
 
     if not first['%e'] and seq and after_u then
-        return self:add_label(pattern, suf, flw, sym)
+        return self:add_label(pattern, suf, lab_obj)
     elseif tag == 'seq_exp' then
-        return self:lab_seq_exp(ast_exp, seq, after_u, flw, sym)
+        return self:lab_seq_exp(ast_exp, lab_obj)
     elseif tag == 'ord_exp' then
-        return self:lab_ord_exp(ast_exp, seq, after_u, flw, sym)
+        return self:lab_ord_exp(ast_exp, lab_obj)
     elseif tag == 'star_exp' then
-        return self:lab_star_exp(ast_exp[1], seq, after_u, flw, sym)
+        return self:lab_star_exp(ast_exp[1], lab_obj)
+    elseif tag == 'throw_exp' then
+        local label = assert(ast_exp.label)
+        self:insert_manual_label(label)
+        return self:lab_exp(ast_exp[1], lab_obj) + lp.T(label)
     else
         return pattern
     end
 end
 
-function Generator:lab_seq_exp(seq_arr, seq, after_u, flw, sym)
+function Generator:lab_seq_exp(seq_arr, lab_obj)
     --[[
         Annotates a sequencial expression.
     ]]
+
+    local seq, after_u, flw, sym = Generator.unpack_lab_obj(lab_obj)
 
     local sub_exp1 = seq_arr[1]
     local annot = self.annot
 
     if #seq_arr == 1 then   -- If it is the only element in the sequence
-        return self:lab_exp(sub_exp1, seq, after_u, flw, sym)
+        return self:lab_exp(sub_exp1, lab_obj)
     else
         local first1 = annot:get_first(sub_exp1)
         local seq_arry = {table.unpack(seq_arr, 2)}
         local flwx = annot:calck(seq_arry, flw, 'seq')
 
-        local px = self:lab_exp(sub_exp1, seq, after_u, flwx, sym)
+        local px = self:lab_exp(sub_exp1, Generator.create_lab_obj(seq, after_u, flwx, sym))
         local py = self:lab_seq_exp(
-            seq_arry, 
-            seq or not first1['%e'], 
-            after_u or annot:match_uni(sub_exp1), 
-            flw,
-            sym
+            seq_arry,
+            Generator.create_lab_obj(
+                seq or not first1['%e'], 
+                after_u or annot:match_uni(sub_exp1), 
+                flw,
+                sym
+            )
         )
 
         return px * py
     end
 end
 
-function Generator:lab_ord_exp(ord_arr, seq, after_u, flw, sym)
+function Generator:lab_ord_exp(ord_arr, lab_obj)
     --[[
         Annotates an ordered choice.
     ]]
+    local seq, after_u, flw, sym = Generator.unpack_lab_obj(lab_obj)
 
     local sub_exp1 = ord_arr[1]
     local annot = self.annot
 
     if #ord_arr == 1 then   -- If it is the only element in the sequence
-        return self:lab_exp(sub_exp1, seq, after_u, flw, sym)
+        return self:lab_exp(sub_exp1, lab_obj)
     else
         local first1 = annot:get_first(sub_exp1)
         local ord_arry = {table.unpack(ord_arr, 2)}
         local disjoint = first1:disjoint(annot:calck(ord_arry, flw, 'ord'))
 
-        local px = self:lab_exp(sub_exp1, false, disjoint and after_u, flw, sym)
-        local py = self:lab_ord_exp(ord_arry, false, after_u, flw, sym)
+        local px = self:lab_exp(sub_exp1, Generator.create_lab_obj(false, disjoint and after_u, flw, sym))
+        local py = self:lab_ord_exp(ord_arry, Generator.create_lab_obj(false, after_u, flw, sym))
 
         local ord_first = annot:get_ord_first(ord_arr)
         local pattern = px + py
 
         if seq and not ord_first['%e'] and after_u then
-            return self:add_label(pattern, 'ord_exp', flw, sym)
+            return self:add_label(pattern, 'ord_exp', lab_obj)
         else
             return pattern
         end
     end
 end
 
-function Generator:lab_star_exp(exp, seq, after_u, flw, sym)
+function Generator:lab_star_exp(exp, lab_obj)
+    local seq, after_u, flw, sym = Generator.unpack_lab_obj(lab_obj)
+
     local annot = self.annot
     local first = annot:get_first(exp)
     local disjoint = first:disjoint(flw)
-    return self:lab_exp(exp, false, disjoint and after_u, first:union(flw), sym)^0
+    return self:lab_exp(exp, Generator.create_lab_obj(false, disjoint and after_u, first:union(flw), sym))^0
 end
 
 ----------------------------------------------------------------------------
@@ -350,6 +382,10 @@ function Generator:gen_auxiliars()
 
 end
 
+function Generator:insert_manual_label(label_str)
+    self.manual_labels[#self.manual_labels+1] = label_str
+end
+
 local function throw_error(err, sym)
     error('Rule ' .. sym.sym_str .. ': ' .. err)
 end
@@ -422,6 +458,9 @@ function Generator:get_labs_arr()
             end
         end
     end
+    for _, lab_str in ipairs(self.manual_labels) do
+        ret[#ret+1] = lab_str
+    end
     table.sort(ret)
     return ret
 end
@@ -443,7 +482,7 @@ generator['rule'] = function(self, node)
     else
         -- Annotate RHS if it's a syntactic rule
         local annot = self.annot
-        rhs_lpeg = self:lab_exp(rhs, false, false, annot.follow[sym_str], sym)
+        rhs_lpeg = self:lab_exp(rhs, Generator.create_lab_obj(false, false, annot.follow[sym_str], sym))
     end
 
     if sym.is_keyword then
@@ -490,7 +529,17 @@ generator['seq_exp'] = function(self, node, sym)
     return ret
 end
 
-generator['back_exp'] = function(self, node, sym)
+generator['throw_exp'] = function(self, node, sym)
+    if sym:is_lex() then
+        throw_error('Error labels inside lexical rules are forbidden', sym)
+    else
+        local label = assert(node.label)
+        self:insert_manual_label(label)
+        return self:to_lpeg(node[1], sym) + lp.T(label)
+    end
+end
+
+generator['back_exp'] = function(self, node)
     return lp.Cb(node[1])
 end
 

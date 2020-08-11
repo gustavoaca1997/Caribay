@@ -669,7 +669,7 @@ context("Annotator", function()
             test("a named group and a semantic acton", function()
                 local src = [[
                     long_str    <-  { open_str : init_eq } '\n'? (!close_eq .)* close_str
-                    close_eq    <-  { close_str ^init_eq , check_eq }
+                    close_eq    <-  { close_str =init_eq , check_eq }
                     equals      <-  '='*
                     open_str    <-  '[' equals '['
                     close_str   <-  ']' equals ']'
@@ -715,7 +715,7 @@ context("Annotator", function()
 
             test("a syntactic named group", function()
                 local src = [[
-                    s <- { "="* : equals} ^equals
+                    s <- { "="* : equals} =equals
                 ]]
                 local _, annot = generator.annotate(src)
                 local expected_first = create_first{

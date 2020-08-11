@@ -28,7 +28,8 @@ local peg_grammar = [=[
     ARROW_SKP   <- {:skippable: '<~' -> 'true' :} skip
 
     ORD_OP      <- '/' %s*
-    BACK_OP     <- '^' skip
+    BACK_OP     <- '=' skip
+    THROW_OP    <- '^' skip
     STAR_OP     <- '*' skip
     REP_OP      <- '+' skip
     OPT_OP      <- '?' skip
@@ -49,7 +50,8 @@ local peg_grammar = [=[
 
     exp     <- ord 
     ord     <- (seq (ORD_OP seq^ErrChoice)*)   -> parse_ord
-    seq     <- (unary (skip unary)*)      -> parse_seq
+    seq     <- (throw (skip throw)*)           -> parse_seq
+    throw   <- {| unary (THROW_OP {:label: ID^ErrID :})? |}   -> parse_throw
 
     unary   <- back / star / rep / opt / and / not / atom
     back    <- {| {:tag: '' -> 'back_exp' :}   BACK_OP {ID}^ErrID skip |}
@@ -118,6 +120,15 @@ local function parse_binary(tag)
     end
 end
 
+local function parse_throw(args)
+    if (args.label) then
+        args.tag = 'throw_exp'
+        return args
+    else
+        return args[1]
+    end
+end
+
 local escape_map = {
     ['\\a'] = '\a',
     ['\\b'] = '\b',
@@ -144,6 +155,7 @@ end
 local peg_parser = re.compile(peg_grammar, {
     parse_ord = parse_binary"ord_exp",
     parse_seq = parse_binary"seq_exp",
+    parse_throw = parse_throw,
     parse_esc = parse_esc,
     concat_chars = concat_chars,
 })
@@ -154,8 +166,7 @@ function M.match(inp)
     if not ast then
         local ln, col = re.calcline(inp, pos)
         local suffErrMsg = errLabel ~= "fail" and M.errMsgs[errLabel] or "fail"
-        local errMsg = "Error at line " .. ln .. ", column " .. col .. ": " ..
-            suffErrMsg
+        local errMsg = "Error at line " .. ln .. ", column " .. col .. ": " .. suffErrMsg
         error(errMsg)
     end
     return ast, literals

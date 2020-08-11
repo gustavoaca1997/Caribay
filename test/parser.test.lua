@@ -545,6 +545,77 @@ context("Parser", function ( )
             assert.are.same({['.'] = true, ['0x'] = true}, literals)
         end)
 
+        test("Error label", function()
+            local input = [[
+                number <- INT / HEX / FLOAT / &.^ErrNumber
+                fragment INT <- %d+
+                fragment FLOAT <- %d+ '.' %d+
+                fragment HEX <- '0x' [0-9a-f]+
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 'number' },
+                    {
+                        tag = 'ord_exp',
+                        { tag = 'lex_sym', 'INT' },
+                        { tag = 'lex_sym', 'HEX' },
+                        { tag = 'lex_sym', 'FLOAT' },
+                        { 
+                            tag = 'throw_exp',
+                            label = 'ErrNumber',
+                            {
+                                tag = 'and_exp',
+                                { tag = 'any', '.' },
+                            }
+                        },
+                    }
+                },
+                {
+                    tag = 'rule',
+                    fragment = 'true',
+                    { tag = 'lex_sym', 'INT' },
+                    {
+                        tag = 'rep_exp',
+                        { tag = 'class', '%d' }
+                    }
+                },
+                {
+                    tag = 'rule',
+                    fragment = 'true',
+                    { tag = 'lex_sym', 'FLOAT' },
+                    {
+                        tag = 'seq_exp',
+                        {
+                            tag = 'rep_exp',
+                            { tag = 'class', '%d' },
+                        },
+                        { tag = 'literal', '.' },
+                        {
+                            tag = 'rep_exp',
+                            { tag = 'class', '%d' },
+                        },
+                    }
+                },
+                {
+                    tag = 'rule',
+                    fragment = 'true',
+                    { tag = 'lex_sym', 'HEX' },
+                    {
+                        tag = 'seq_exp',
+                        { tag = 'literal', '0x' },
+                        {
+                            tag = 'rep_exp',
+                            { tag = 'class', '[0-9a-f]' },
+                        }
+                    }
+                }
+            }
+            local ast, literals = parser.match(input)
+            assert.are.same(expected, ast)
+            assert.are.same({['.'] = true, ['0x'] = true}, literals)
+        end)
+
         test("syntactic symbol with 'fragment' as preffix", function()
             local input = [[
                 s <- fragment_moon*
@@ -818,6 +889,29 @@ context("Parser", function ( )
             assert.are.same({[','] = true, ['.'] = true, [':'] = true}, literals)
         end)
 
+        test("manual label", function()
+            local input = [[
+                s <- ('a' / 'c')^ErrLabel
+            ]]
+            local expected = {
+                {
+                    tag = 'rule',
+                    { tag = 'syn_sym', 's' },
+                    {
+                        tag = 'throw_exp',
+                        label = 'ErrLabel',
+                        {
+                            tag = 'ord_exp',
+                            { tag = 'literal', 'a' },
+                            { tag = 'literal', 'c' },
+                        },
+                    }
+                }
+            }
+            local ast, literals = parser.match(input)
+            assert.are.same(expected[1][2], ast[1][2])
+        end)
+
         test("scaped quotes I", function()
             local input = 's <- "\\"" '
             local expected = {
@@ -985,12 +1079,12 @@ context("Parser", function ( )
         end)
 
         test("back expression bad written I", function()
-            local input = 's <- ^^count'
+            local input = 's <- ==count'
             assert.contains_error('Valid identifier expected', parser.match, input)
         end)
 
         test("back expression bad written I", function()
-            local input = 's <- a ^'
+            local input = 's <- a ='
             assert.contains_error('Valid identifier expected', parser.match, input)
         end)
 

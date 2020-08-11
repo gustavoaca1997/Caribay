@@ -69,7 +69,7 @@ STRING      <- '"' (ESC / [^"])* '"' / "'"  (ESC / [^'])* "'" / LONG_STR
 EQUALS      <-  '='*
 OPEN_STR    <-  '[' EQUALS '['
 CLOSE_STR   <-  ']' EQUALS ']'
-CLOSE_EQ    <-  { CLOSE_STR ^init_eq , check_eq }
+CLOSE_EQ    <-  { CLOSE_STR =init_eq , check_eq }
 LONG_STR    <-  { OPEN_STR : init_eq } '\n'? (!CLOSE_EQ .)* CLOSE_STR
 
 NUMBER      <- (%d* '.' %d+ / %d+ '.' / %d+) (('e' / 'E') '-'? %d+)?

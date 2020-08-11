@@ -353,6 +353,20 @@ context("Generator", function()
                 assert.is.falsy(parser:match('aaabbbcc'))
                 assert.is.falsy(parser:match('aa abbbccc'))
             end)
+
+            test("Manually inserted error", function()
+                local src = [[
+                    numbers <- ((INT / HEX / FLOAT)^ErrNumber)+
+                    fragment INT <- %d+
+                    fragment FLOAT <- %d+ '.' %d+
+                    fragment HEX <- '0x' [0-9a-f]+
+                ]]
+                local parser, labs = generator.gen(src)
+                assert.are.same({'ErrNumber'}, labs)
+                assert.has_lab(parser, ' ', 'ErrNumber', 2)
+                assert.has_lab(parser, 'asdf', 'ErrNumber', 1)
+                assert.has_lab(parser, '123 32 x 2.45', 'ErrNumber', 8)
+            end)
     
             test("list of numbers", function()
                 local src = [[
@@ -361,7 +375,7 @@ context("Generator", function()
                     INT <- %d+ !'.'
                     FLOAT <- %d+ '.' %d+
                 ]]
-                local parser = generator.gen(src)
+                local parser, labs = generator.gen(src)
     
                 local expected = {
                     tag = 'list', pos = 1,
@@ -428,7 +442,7 @@ context("Generator", function()
             test("its own ID_START rule", function()
                 local src = [[
                     s <- `print` ID
-                    ID_START <- '_'? [a-zA-Z]+          
+                    ID_START <- '_'? [a-zA-Z]+  
                 ]]
                 local parser, labs_arr = generator.gen(src)
     
@@ -659,7 +673,7 @@ context("Generator", function()
     
             test("a syntactic named group", function()
                 local src = [[
-                    s <- { "="* : equals} ^equals
+                    s <- { "="* : equals} =equals
                 ]]
                 local parser = generator.gen(src)
                 assert.same_ast({ 
@@ -906,6 +920,19 @@ context("Generator", function()
                 generator.gen(src)
             end
             assert.has_error(fn, "rule 'star' undefined in given grammar")
+        end)
+
+        test("'Error labels inside lexical rules are forbidden'", function()
+            local src = [[
+                list <- NUMBER+
+                NUMBER <- INT / FLOAT
+                INT <- %d+ !'.'
+                FLOAT <- %d+ '.' %d+^ErrDecimal
+            ]]
+            local fn = function()
+                generator.gen(src)
+            end
+            assert.has_error(fn, "Rule FLOAT: Error labels inside lexical rules are forbidden")
         end)
 
         test("'Trying to use a syntactic element in a lexical rule'", function ( )
