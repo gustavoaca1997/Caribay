@@ -253,11 +253,11 @@ The user can group all values returned by a pattern into a single named capture 
 ```peg
 a_rule <- { a_pattern : a_name }
 ```
-Again, `a_rule` could be lexical or syntactic. After doing this, considering `a_rule` as a syntactic rule, the captures of `a_pattern` won't be in the array of `a_rule`. If the user wants to return those captures, now grouped or labeled as `a_name`, they can use the operator `^` for **back captures** like this:
+Again, `a_rule` could be lexical or syntactic. After doing this, considering `a_rule` as a syntactic rule, the captures of `a_pattern` won't be in the array of `a_rule`. If the user wants to return those captures, now grouped or labeled as `a_name`, they can use the operator `=` for **back captures** like this:
 ```peg
-s <- { "="* : equals} ^equals
+s <- { "="* : equals} =equals
 ```
-Keep in mind that `^equals` could be used anywhere in the grammar, returning the captures of the most recent group capture named `equals`. 
+Keep in mind that `=equals` could be used anywhere in the grammar, returning the captures of the most recent group capture named `equals`. 
 
 _Most recent_ means the last complete outermost group capture with the given name. A _complete_ capture means that the entire pattern corresponding to the capture has matched. An _outermost_ capture means that the capture is not inside another complete capture.
 
@@ -268,13 +268,20 @@ LONG_STR    <-  { OPEN_STR : init_eq } '\n'? (!CLOSE_EQ .)* CLOSE_STR
 EQUALS      <-  '='*
 OPEN_STR    <-  '[' EQUALS '['
 CLOSE_STR   <-  ']' EQUALS ']'
-CLOSE_EQ    <-  { CLOSE_STR ^init_eq , check_eq }
+CLOSE_EQ    <-  { CLOSE_STR =init_eq , check_eq }
 ```
 where `close_eq` is defined as follows:
 ```lua
 function(subject, pos, closing, opening)
     return #closing[1] == #opening[1]
 end
+```
+
+### Error Labels
+#### Manually inserted
+Use `^` operator.
+```peg
+numbers <- ((INT / HEX / FLOAT)^ErrNumber)+
 ```
 
 ___
