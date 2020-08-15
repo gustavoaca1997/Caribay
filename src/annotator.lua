@@ -72,6 +72,66 @@ end
 
 ----------------------------------------------------------------------------
 ----------------------------------------------------------------------------
+----------------------------------------------------------------------------
+local END_TOKEN = '__$';
+
+function Annotator:get_tokens_set(exp, set_type)
+    --[[
+        This functions works for computing either FIRST sets or
+        LAST sets, where `set_type` is either 'first' or 'last'.
+    ]]
+    local tokens_set = set_type == 'first' and self.first or self.last;
+
+    if exp.tag == 'literal' then
+        return Set:new{ ["'" .. exp[1] .. "'"] = true }
+
+    elseif exp.tag == 'keyword' then
+        return Set:new{ ["`" .. exp[1] .. "`"] = true }
+
+    elseif is_terminal(exp) then
+        return Set:new{ [exp[1]] = true}
+        
+    elseif exp.tag == 'syn_sym' then
+        return tokens_set[exp[1]]
+
+    elseif exp.tag == 'ord_exp' then
+        return self:get_ord_tokens_set(exp, set_type)
+
+    elseif exp.tag == 'seq_exp' then
+        if set_type == 'first' then
+            return self:get_seq_first(exp)
+        else
+            return self:get_seq_last(exp)
+        end
+
+    elseif exp.tag == 'star_exp' or exp.tag == 'opt_exp' then
+        local sub = self:get_tokens_set(exp[1], set_type)
+        return sub:add('%e')
+
+    elseif exp.tag == 'rep_exp' then
+        return self:get_tokens_set(exp[1], set_type)
+
+    elseif exp.tag == 'empty' then
+        return Set:new{ ['%e'] = true }
+
+    elseif exp.tag == 'action' or exp.tag == 'group' then
+        return self:get_tokens_set(exp[1], set_type)
+
+    else
+        return Set:new{ ['%e'] = true }
+    end
+end
+
+function Annotator:get_ord_tokens_set(exp, set_type)
+    local ret = Set:new{}
+    for _, sub_exp in ipairs(exp) do
+        ret = ret:union(self:get_tokens_set(sub_exp, set_type))
+    end
+    return ret
+end
+
+----------------------------------------------------------------------------
+----------------------------------------------------------------------------
 
 function Annotator:get_seq_first(exps)
     if not exps or #exps == 0 then
@@ -88,48 +148,11 @@ function Annotator:get_seq_first(exps)
 end
 
 function Annotator:get_ord_first(exp)
-    local ret = Set:new{}
-    for _, sub_exp in ipairs(exp) do
-        ret = ret:union(self:get_first(assert(sub_exp)))
-    end
-    return ret
+    return self:get_ord_tokens_set(exp, 'first')
 end
 
 function Annotator:get_first(exp)
-    if exp.tag == 'literal' then
-        return Set:new{ ["'" .. exp[1] .. "'"] = true }
-
-    elseif exp.tag == 'keyword' then
-        return Set:new{ ["`" .. exp[1] .. "`"] = true }
-
-    elseif is_terminal(exp) then
-        return Set:new{ [exp[1]] = true}
-        
-    elseif exp.tag == 'syn_sym' then
-        return self.first[exp[1]]
-
-    elseif exp.tag == 'ord_exp' then
-        return self:get_ord_first(exp)
-
-    elseif exp.tag == 'seq_exp' then
-        return self:get_seq_first(exp)
-
-    elseif exp.tag == 'star_exp' or exp.tag == 'opt_exp' then
-        local sub_first = self:get_first(assert(exp[1]))
-        return sub_first:add('%e')
-
-    elseif exp.tag == 'rep_exp' then
-        return self:get_first(assert(exp[1]))
-
-    elseif exp.tag == 'empty' then
-        return Set:new{ ['%e'] = true }
-
-    elseif exp.tag == 'action' or exp.tag == 'group' then
-        return self:get_first(assert(exp[1]))
-
-    else
-        return Set:new{ ['%e'] = true }
-    end
+    return self:get_tokens_set(exp, 'first')
 end
 
 function Annotator:compute_all_first()
@@ -161,8 +184,6 @@ end
 
 ----------------------------------------------------------------------------
 ----------------------------------------------------------------------------
-local END_TOKEN = '__$';
-
 function Annotator:compute_seq_follow(exps, flw)
     if not exps or #exps == 0 then
         return
@@ -255,48 +276,11 @@ function Annotator:get_seq_last(exps)
 end
 
 function Annotator:get_ord_last(exp)
-    local ret = Set:new{}
-    for _, sub_exp in ipairs(exp) do
-        ret = ret:union(self:get_last(sub_exp))
-    end
-    return ret
+    return self:get_ord_tokens_set(exp, 'last')
 end
 
 function Annotator:get_last(exp)
-    if exp.tag == 'literal' then
-        return Set:new{ ["'" .. exp[1] .. "'"] = true }
-
-    elseif exp.tag == 'keyword' then
-        return Set:new{ ["`" .. exp[1] .. "`"] = true }
-
-    elseif is_terminal(exp) then
-        return Set:new{ [exp[1]] = true}
-        
-    elseif exp.tag == 'syn_sym' then
-        return self.last[exp[1]]
-
-    elseif exp.tag == 'ord_exp' then
-        return self:get_ord_last(exp)
-
-    elseif exp.tag == 'seq_exp' then
-        return self:get_seq_last(exp)
-
-    elseif exp.tag == 'star_exp' or exp.tag == 'opt_exp' then
-        local sub_last = self:get_last(assert(exp[1]))
-        return sub_last:add('%e')
-
-    elseif exp.tag == 'rep_exp' then
-        return self:get_last(exp[1])
-
-    elseif exp.tag == 'empty' then
-        return Set:new{ ['%e'] = true }
-
-    elseif exp.tag == 'action' or exp.tag == 'group' then
-        return self:get_last(exp[1])
-
-    else
-        return Set:new{ ['%e'] = true }
-    end
+    return self:get_tokens_set(exp, 'last')
 end
 
 function Annotator:compute_all_last()
