@@ -609,8 +609,8 @@ end
 ----------------------------------------------------------------------------
 ----------------------------------------------------------------------------
 
-M.gen = function (input, actions)
-    local generator, annot = M.annotate(input, actions)
+M.gen = function (input, actions, use_unique_context)
+    local generator, annot = M.annotate(input, actions, use_unique_context)
 
     for _, rule in ipairs(annot.ast) do
         generator:to_lpeg(rule)
@@ -623,13 +623,13 @@ M.gen = function (input, actions)
     return parser, labs_arr
 end
 
-M.annotate = function(input, actions)
+M.annotate = function(input, actions, use_unique_context)
     local ast, literals = parser.match(input)
     local generator = Generator:new(actions, literals)
     local syms = generator:get_syms(ast)
     generator:validate_syms(ast)
 
-    local annot = annotator.annotate(ast, syms, generator.init)
+    local annot = annotator.annotate(ast, syms, generator.init, use_unique_context)
     generator.annot = annot
     return generator, annot
 end

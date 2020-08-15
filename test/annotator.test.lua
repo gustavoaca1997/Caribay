@@ -68,7 +68,7 @@ context("Annotator", function()
                     }
                     assert.are.same(expected_first, annot.first)
                     assert.are.same(expected_flw, annot.follow)
-                    assert.is.truthy(annot:is_uni_token("'a'"))
+                    -- assert.is.truthy(annot:is_uni_token("'a'"))
                 end)
 
                 test("a not captured literal", function()
@@ -82,7 +82,7 @@ context("Annotator", function()
                     }
                     assert.are.same(expected_first, annot.first)
                     assert.are.same(expected_flw, annot.follow)
-                    assert.is.truthy(annot:is_uni_token("'a'"))
+                    -- assert.is.truthy(annot:is_uni_token("'a'"))
                 end)
 
                 test("a captured literal between two not captured literals", function()
@@ -98,9 +98,9 @@ context("Annotator", function()
                     }
                     assert.are.same(expected_flw, annot.follow)
                     assert.are.same(expected_first, annot.first)
-                    assert.is.truthy(annot:is_uni_token("'a'"))
-                    assert.is.truthy(annot:is_uni_token("'->'"))
-                    assert.is.truthy(annot:is_uni_token("'<-'"))
+                    -- assert.is.truthy(annot:is_uni_token("'a'"))
+                    -- assert.is.truthy(annot:is_uni_token("'->'"))
+                    -- assert.is.truthy(annot:is_uni_token("'<-'"))
 
                 end)
 
@@ -119,7 +119,7 @@ context("Annotator", function()
                         s = { [END_TOKEN] = true }
                     }
                     assert.are.same(expected_flw, annot.follow)
-                    assert.is.truthy(annot:is_uni_token([['\t']]))
+                    -- assert.is.truthy(annot:is_uni_token([['\t']]))
 
                 end)
 
@@ -140,9 +140,9 @@ context("Annotator", function()
                         s = { [END_TOKEN] = true }
                     }
                     assert.are.same(expected_flw, annot.follow)
-                    assert.is.truthy(annot:is_uni_token("'a'"))
-                    assert.is.truthy(annot:is_uni_token("'b'"))
-                    assert.is.truthy(annot:is_uni_token("'c'"))
+                    -- assert.is.truthy(annot:is_uni_token("'a'"))
+                    -- assert.is.truthy(annot:is_uni_token("'b'"))
+                    -- assert.is.truthy(annot:is_uni_token("'c'"))
 
                 end)
 
@@ -166,7 +166,7 @@ context("Annotator", function()
                         s = { [END_TOKEN] = true },
                     }
                     assert.are.same(expected_flw, annot.follow)
-                    assert.is.truthy(annot:is_uni_token("A"))
+                    -- assert.is.truthy(annot:is_uni_token("A"))
                 end)
 
                 test("sequences as ordered choices", function()
@@ -216,12 +216,12 @@ context("Annotator", function()
                     between_parentheses = { [END_TOKEN] = true },
                 }
                 assert.are.same(expected_flw, annot.follow)
-                assert.is.truthy(annot:is_uni_token("'b'"))
-                assert.is.truthy(annot:is_uni_token("'p'"))
-                assert.is.truthy(annot:is_uni_token("'{'"))
-                assert.is.truthy(annot:is_uni_token("'}'"))
-                assert.is.truthy(annot:is_uni_token("'('"))
-                assert.is.truthy(annot:is_uni_token("')'"))
+                -- assert.is.truthy(annot:is_uni_token("'b'"))
+                -- assert.is.truthy(annot:is_uni_token("'p'"))
+                -- assert.is.truthy(annot:is_uni_token("'{'"))
+                -- assert.is.truthy(annot:is_uni_token("'}'"))
+                -- assert.is.truthy(annot:is_uni_token("'('"))
+                -- assert.is.truthy(annot:is_uni_token("')'"))
 
             end)
 
@@ -242,8 +242,8 @@ context("Annotator", function()
                     full_name = { [END_TOKEN] = true },
                 }
                 assert.are.same(expected_follow, annot.follow)
-                assert.is.truthy(annot:is_uni_token("FIRST"))
-                assert.is.truthy(annot:is_uni_token("LAST"))
+                -- assert.is.truthy(annot:is_uni_token("FIRST"))
+                -- assert.is.truthy(annot:is_uni_token("LAST"))
             end)
 
             test("and predicate", function()
@@ -311,8 +311,8 @@ context("Annotator", function()
                 }
                 assert.are.same(expected_first, annot.first)
                 assert.are.same(expected_flw, annot.follow)
-                assert.is.truthy(annot:is_uni_token("INT"))
-                assert.is.truthy(annot:is_uni_token("FLOAT"))
+                -- assert.is.truthy(annot:is_uni_token("INT"))
+                -- assert.is.truthy(annot:is_uni_token("FLOAT"))
 
             end)
 
@@ -331,7 +331,7 @@ context("Annotator", function()
                 }
                 assert.are.same(expected_first, annot.first)
                 assert.are.same(expected_flw, annot.follow)
-                assert.is.truthy(annot:is_uni_token("BIT"))
+                -- assert.is.truthy(annot:is_uni_token("BIT"))
 
             end)
 
@@ -370,10 +370,10 @@ context("Annotator", function()
                 assert.are.same(expected_first, annot.first)
                 assert.are.same(expected_flw, annot.follow)
 
-                assert.is.truthy(annot:is_uni_token("INT"))
-                assert.is.falsy(annot:is_uni_token("ID"))
-                assert.is.truthy(annot:is_uni_token("'='"))
-                assert.is.truthy(annot:is_uni_token("`print`"))
+                -- assert.is.truthy(annot:is_uni_token("INT"))
+                -- assert.is.falsy(annot:is_uni_token("ID"))
+                -- assert.is.truthy(annot:is_uni_token("'='"))
+                -- assert.is.truthy(annot:is_uni_token("`print`"))
 
             end)
 
@@ -415,11 +415,11 @@ context("Annotator", function()
                 assert.are.same(expected_first, annot.first)
                 assert.are.same(expected_flw, annot.follow)
 
-                assert.is.truthy(annot:is_uni_token("VECTOR"))
-                assert.is.truthy(annot:is_uni_token("'.'"))
-                assert.is.truthy(annot:is_uni_token("INT"))
-                assert.is.falsy(annot:is_uni_token("ID"))
-                assert.is.falsy(annot:is_uni_token("SKIP"))
+                -- assert.is.truthy(annot:is_uni_token("VECTOR"))
+                -- assert.is.truthy(annot:is_uni_token("'.'"))
+                -- assert.is.truthy(annot:is_uni_token("INT"))
+                -- assert.is.falsy(annot:is_uni_token("ID"))
+                -- assert.is.falsy(annot:is_uni_token("SKIP"))
 
             end)
 
@@ -440,7 +440,7 @@ context("Annotator", function()
                 }
                 assert.are.same(expected_first, annot.first)
                 assert.are.same(expected_flw, annot.follow)
-                assert.is_false(annot:is_uni_token("NUMBER"))
+                -- assert.is_false(annot:is_uni_token("NUMBER"))
             end)
 
             test("recursive initial symbol", function()
@@ -794,16 +794,16 @@ context("Annotator", function()
                 }
                 assert.are.same(expected_flw, annot.follow)
 
-                assert.is.falsy(annot:is_uni_token("','"))
-                assert.is.falsy(annot:is_uni_token("STRING"))
-                assert.is.truthy(annot:is_uni_token("`null`"))
-                assert.is.truthy(annot:is_uni_token("BOOLEAN"))
-                assert.is.truthy(annot:is_uni_token("NUMBER"))
-                assert.is.truthy(annot:is_uni_token("'['"))
-                assert.is.truthy(annot:is_uni_token("']'"))
-                assert.is.truthy(annot:is_uni_token("'{'"))
-                assert.is.truthy(annot:is_uni_token("'}'"))
-                assert.is.truthy(annot:is_uni_token("':'"))
+                -- assert.is.falsy(annot:is_uni_token("','"))
+                -- assert.is.falsy(annot:is_uni_token("STRING"))
+                -- assert.is.truthy(annot:is_uni_token("`null`"))
+                -- assert.is.truthy(annot:is_uni_token("BOOLEAN"))
+                -- assert.is.truthy(annot:is_uni_token("NUMBER"))
+                -- assert.is.truthy(annot:is_uni_token("'['"))
+                -- assert.is.truthy(annot:is_uni_token("']'"))
+                -- assert.is.truthy(annot:is_uni_token("'{'"))
+                -- assert.is.truthy(annot:is_uni_token("'}'"))
+                -- assert.is.truthy(annot:is_uni_token("':'"))
 
             end)
         end)
@@ -1136,23 +1136,23 @@ context("Annotator", function()
             }
             assert.are.same(expected_first, annot.first)
 
-            assert.is_true(annot:is_uni_token('SP_COMMENT'))
-            assert.is_true(annot:is_uni_token('`if`'))
-            assert.is_true(annot:is_uni_token('`elseif`'))
-            assert.is_false(annot:is_uni_token('`do`'))
-            assert.is_false(annot:is_uni_token('`for`'))
-            assert.is_true(annot:is_uni_token('`return`'))
-            assert.is_true(annot:is_uni_token('`break`'))
-            assert.is_false(annot:is_uni_token('`local`'))
-            assert.is_false(annot:is_uni_token('`function`'))
-            assert.is_true(annot:is_uni_token("'{'"))
-            assert.is_true(annot:is_uni_token("'}'"))
-            assert.is_true(annot:is_uni_token('NUMBER'))
-            assert.is_false(annot:is_uni_token('STRING'))
-            assert.is_true(annot:is_uni_token('`not`'))
-            assert.is_false(annot:is_uni_token("'...'"))
-            assert.is_false(annot:is_uni_token("'='"))
-            assert.is_false(annot:is_uni_token("';'"))
+            -- assert.is_true(annot:is_uni_token('SP_COMMENT'))
+            -- assert.is_true(annot:is_uni_token('`if`'))
+            -- assert.is_true(annot:is_uni_token('`elseif`'))
+            -- assert.is_false(annot:is_uni_token('`do`'))
+            -- assert.is_false(annot:is_uni_token('`for`'))
+            -- assert.is_true(annot:is_uni_token('`return`'))
+            -- assert.is_true(annot:is_uni_token('`break`'))
+            -- assert.is_false(annot:is_uni_token('`local`'))
+            -- assert.is_false(annot:is_uni_token('`function`'))
+            -- assert.is_true(annot:is_uni_token("'{'"))
+            -- assert.is_true(annot:is_uni_token("'}'"))
+            -- assert.is_true(annot:is_uni_token('NUMBER'))
+            -- assert.is_false(annot:is_uni_token('STRING'))
+            -- assert.is_true(annot:is_uni_token('`not`'))
+            -- assert.is_false(annot:is_uni_token("'...'"))
+            -- assert.is_false(annot:is_uni_token("'='"))
+            -- assert.is_false(annot:is_uni_token("';'"))
         end)
     end)
 end)

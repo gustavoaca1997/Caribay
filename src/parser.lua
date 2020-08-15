@@ -19,7 +19,7 @@ local peg_grammar = [=[
     skip        <- SPACE*
     newlines    <- %nl %s*
 
-    LEX_ID  <- {| {:tag: '' -> 'lex_sym' :}    { [A-Z][A-Z0-9_]* } skip |}
+    LEX_ID  <- {| {:tag: '' -> 'lex_sym' :}  {:pos: {} :}  { [A-Z][A-Z0-9_]* } skip |}
     SYN_ID  <- {| {:tag: '' -> 'syn_sym' :}    { [a-z][a-zA-Z0-9_]* } skip |}
     name    <- LEX_ID / SYN_ID
 
@@ -72,9 +72,9 @@ local peg_grammar = [=[
     literal2    <- {| (escaped / {[^']})* |} -> concat_chars
     literal3    <- {| (escaped / {[^`]})+ |} -> concat_chars
 
-    CAPTURED    <- {| {:tag: '' -> 'literal' :} {:captured: '' -> 'true' :} LQUOTES  literal1 RQUOTES^ErrRQuotes |}
-    LITERAL     <- {| {:tag: '' -> 'literal' :}  LQUOTE   literal2 RQUOTE^ErrRQuote |}
-    KEYWORD     <- {| {:tag: '' -> 'keyword' :}  LBSTICK  literal3 RBSTICK^ErrRBStick|}
+    CAPTURED    <- {| {:tag: '' -> 'literal' :} {:captured: '' -> 'true' :} {:pos: {} :}    LQUOTES  literal1 RQUOTES^ErrRQuotes |}
+    LITERAL     <- {| {:tag: '' -> 'literal' :} {:pos: {} :}    LQUOTE   literal2 RQUOTE^ErrRQuote |}
+    KEYWORD     <- {| {:tag: '' -> 'keyword' :} {:pos: {} :}    LBSTICK  literal3 RBSTICK^ErrRBStick|}
 
     ANY     <- {| {:tag: '' -> 'any' :}        { '.' } skip |}
     EMPTY   <- {| {:tag: '' -> 'empty' :}      (("''" / '""' / '%e' 'mpty'?) -> '%%e') skip |}

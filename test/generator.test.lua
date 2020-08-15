@@ -529,7 +529,6 @@ context("Generator", function()
                 assert.same_ast(expected, parser:match(input))
 
                 assert.are.same({'assign_INT', 'print_ID'}, labs_arr)
-                -- assert.has_lab(parser, 'x 10', 'assign_=', 3) -- TODO: Improvement: Unique Path
                 assert.has_lab(parser, 'x = print 2', 'assign_INT', 5)
                 assert.has_lab(parser, 'print 2', 'print_ID', 7)
                 assert.has_lab(parser, '= x = 10', 'fail', 1)
@@ -569,10 +568,9 @@ context("Generator", function()
                 assert.are.same(expected, parser:match(input))
 
                 assert.are.same({ 'idx_INT', 'init_ID',}, labs_arr)
-                assert.has_lab(parser, 'vector3D 2', 'fail', 10) -- TODO: If algorithm is improved, the label should be `idx_.`
+                assert.has_lab(parser, 'vector3D 2', 'fail', 10)
                 assert.has_lab(parser, 'vector3 vector3D ;;.; vector3D.2', 'EOF', 20)
                 assert.has_lab(parser, 'vector1 3dvector', 'init_ID', 9)
-                -- assert.has_lab(parser, 'vector3D 2', 'idx_.', 10) -- TODO: Improvement: Unique Path
             end)
     
             test('syntactic fragment', function()
@@ -846,7 +844,111 @@ context("Generator", function()
     end)
 
     -- This one only tests labels generated and not successfu
-    context("generates labels for a parser (using unique paths) with ", function()
+    context("generates labels for a parser using unique context with ", function()
+        test("a disjoint ordered choice", function()
+            -- The alternatives of this choice are disjoint.
+            -- The choice must succeed, since that the start rule
+            -- must succeed.
+            -- After matching a symbol in the FIRST set of the the first
+            -- alternative the matching of first alternative must succeed.
+            -- As the choice must succeed, the last alternative must succeed
+            -- when we try to match it.
+            local src = [[
+                s <- 'a' 'c' / 'c' 'd'
+            ]]
+            local parser, labs_arr = generator.gen(src, nil, true)
+            
+            assert.are.same({'s_c', 's_d'}, labs_arr)
+            assert.has_lab(parser, 'a', 's_c', 2)
+            assert.has_lab(parser, 'a d', 's_c', 3)
+            assert.has_lab(parser, 'd', 'fail', 1)
+            assert.has_lab(parser, 'c', 's_d', 2)
+            assert.has_lab(parser, 'c c', 's_d', 3)
+        end)
+
+        test("default ID rule and a keyword", function()
+            local src = [[
+                s <- (print / assign)+
+                assign <- ID '=' INT
+                INT <- %d+
+                print <- `print` ID
+            ]]
+            local parser, labs_arr = generator.gen(src, nil, true)
+
+            local input = 'x = 10 print x printx = 20 print printx'
+            local expected = {
+                tag = 's',
+                {
+                    tag = 'assign',
+                    { tag = 'ID', 'x' },
+                    { tag = 'INT', '10' },
+                },
+                {
+                    tag = 'print',
+                    { tag = 'token', 'print' },
+                    { tag = 'ID', 'x' },
+                },
+                {
+                    tag = 'assign',
+                    { tag = 'ID', 'printx' },
+                    { tag = 'INT', '20' },
+                },
+                {
+                    tag = 'print',
+                    { tag = 'token', 'print' },
+                    { tag = 'ID', 'printx' },
+                },
+            }
+            assert.same_ast(expected, parser:match(input))
+
+            assert.are.same({'assign_=', 'assign_INT', 'print_ID'}, labs_arr)
+            assert.has_lab(parser, 'x 10', 'assign_=', 3)
+            assert.has_lab(parser, 'x = print 2', 'assign_INT', 5)
+            assert.has_lab(parser, 'print 2', 'print_ID', 7)
+            assert.has_lab(parser, '= x = 10', 'fail', 1)
+        end)
+
+        test("keyword rules and its own SKIP rule", function()
+            local src = [[
+                s <- (init / idx)+
+                init <- VECTOR ID
+                idx <- ID '.' INT
+
+                keyword VECTOR <- 'vector' [1-9]
+                INT <- %d+
+
+                SKIP <- (' ' / '\n' / ';')*
+            ]]
+            local parser, labs_arr = generator.gen(src, nil, true)
+
+            local input = [[
+            vector3 vector3D
+            ;;;;
+            vector3D.2
+            ]]
+            local expected = {
+                tag = 's', pos = 17,
+                {
+                    tag = 'init', pos = 17,
+                    { tag = 'VECTOR', pos = 17, 'vector3' },
+                    { tag = 'ID', pos = 25, 'vector3D' },
+                },
+                {
+                    tag = 'idx', pos = 71,
+                    { tag = 'ID', pos = 71, 'vector3D' },
+                    { tag = 'INT', pos = 80, '2' },
+                },
+            }
+            assert.same_ast(expected, parser:match(input))
+
+            assert.are.same({'idx_.', 'idx_INT', 'init_ID',}, labs_arr)
+            assert.has_lab(parser, 'vector3D 2', 'idx_.', 10)
+            assert.has_lab(parser, 'vector3 vector3D ;;.; vector3D.2', 'EOF', 20)
+            assert.has_lab(parser, 'vector1 3dvector', 'init_ID', 9)
+        end)
+    end)
+
+    pending("generates labels for a parser using unique context and unique syntactical symbols with ", function()
         pending("a disjoint ordered choice", function()
             -- The alternatives of this choice are disjoint.
             -- The choice must succeed, since that the start rule
@@ -858,7 +960,7 @@ context("Generator", function()
             local src = [[
                 s <- 'a' 'c' / 'c' 'd'
             ]]
-            local parser, labs_arr = generator.gen(src)
+            local parser, labs_arr = generator.gen(src, nil, true)
             
             assert.are.same({'s_c', 's_c_2', 's_d'}, labs_arr)
             assert.has_lab(parser, 'a', 's_c', 2)

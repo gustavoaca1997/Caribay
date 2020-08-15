@@ -18,6 +18,13 @@ end
 local function traverse(currExpected, currOutput)
     if  not currOutput or
         currExpected.tag ~= currOutput.tag or 
+        currExpected.skippable ~= currOutput.skippable or
+        currExpected.label ~= currOutput.label or
+        currExpected.action ~= currOutput.action or
+        currExpected.group ~= currOutput.group or
+        currExpected.captured ~= currOutput.captured or
+        currExpected.fragment ~= currOutput.fragment or
+        currExpected.keyword ~= currOutput.keyword or
         #currExpected ~= #currOutput
     then
         return false

@@ -1,4 +1,5 @@
 local assertions = require"test.assertions"
+assert:register("assertion", "same_ast", assertions.same_ast)
 assert:register("assertion", "contains_error", assertions.contains_error)
 
 context("Parser", function ( )
@@ -25,7 +26,7 @@ context("Parser", function ( )
                         }
                     }
                 }
-                assert.are.same(expected, ast)
+                assert.same_ast(expected, ast)
                 assert.are.same({a = true}, literals)
             end)
 
@@ -42,7 +43,7 @@ context("Parser", function ( )
                         }
                     }
                 }
-                assert.are.same(expected, ast)
+                assert.same_ast(expected, ast)
                 assert.are.same({a = true}, literals)
             end)
 
@@ -59,7 +60,7 @@ context("Parser", function ( )
                         }
                     }
                 }
-                assert.are.same(expected, ast)
+                assert.same_ast(expected, ast)
                 assert.are.same({a = true}, literals)
             end)
 
@@ -77,7 +78,7 @@ context("Parser", function ( )
                     }
                 }
                 local output, p, n = parser.match(input)
-                assert.are.same(expected, output)
+                assert.same_ast(expected, output)
             end)
     
             test("an ordered choice", function() 
@@ -96,7 +97,7 @@ context("Parser", function ( )
                     }
                 }
                 local output, literals = parser.match(input)
-                assert.are.same(expected, output)
+                assert.same_ast(expected, output)
                 assert.are.same({a = true, b = true}, literals)
             end)
     
@@ -123,7 +124,7 @@ context("Parser", function ( )
                         }
                     }
                 }
-                assert.are.same(expected, parser.match(input))
+                assert.same_ast(expected, parser.match(input))
             end)
 
             test("sequences and ordered choices", function()
@@ -144,7 +145,7 @@ context("Parser", function ( )
                     }
                 }
                 local ast, literals = parser.match(input)
-                assert.are.same(expected, ast)
+                assert.same_ast(expected, ast)
                 assert.are.same({a = true, b = true, c = true}, literals)
             end)
     
@@ -163,7 +164,7 @@ context("Parser", function ( )
                     }
                 }
                 local ast, literals = parser.match(input)
-                assert.are.same(expected, ast)
+                assert.same_ast(expected, ast)
                 assert.are.same({a = true}, literals)
             end)
     
@@ -194,7 +195,7 @@ context("Parser", function ( )
                         },
                         {
                             tag = 'opt_exp',
-                            { tag = 'lex_sym', 'FOOD_TRUCK' }
+                            { tag = 'lex_sym', 'FOOD_TRUCK', pos = 6 }
                         }
                     }
                 }
@@ -228,7 +229,7 @@ context("Parser", function ( )
                         },
                         {
                             tag = 'not_exp',
-                            {  tag = 'lex_sym', 'EXP_1' }
+                            {  tag = 'lex_sym', 'EXP_1', pos = 7 }
                         }
                     }
                 }
@@ -291,7 +292,7 @@ context("Parser", function ( )
                         }
                     }
                 }
-                assert.are.same(expected[1][2][2], parser.match(input)[1][2][2])
+                assert.same_ast(expected, parser.match(input))
             end)
 
             test("empty-character I", function()
@@ -347,7 +348,7 @@ context("Parser", function ( )
                         }
                     }
                 }
-                assert.are.same(expected, parser.match(input))
+                assert.same_ast(expected, parser.match(input))
             end)
         end)
 
@@ -376,7 +377,7 @@ context("Parser", function ( )
                     }
                 }
             }
-            assert.are.same(expected, parser.match(input))
+            assert.same_ast(expected, parser.match(input))
         end)
     
         test("a recursive rule with Kleen star", function()
@@ -408,7 +409,7 @@ context("Parser", function ( )
                     }
                 }
             }
-            assert.are.same(expected, ast)
+            assert.same_ast(expected, ast)
         end)
 
         test("two rules", function()
@@ -436,7 +437,7 @@ context("Parser", function ( )
                 }
             }
             local output = parser.match(input)
-            assert.are.same(expected, output)
+            assert.same_ast(expected, output)
         end)
 
         test("skippable annotation", function()
@@ -478,7 +479,7 @@ context("Parser", function ( )
                 }
             }
             local output, literals = parser.match(input)
-            assert.are.same(expected, output)
+            assert.same_ast(expected, output)
             assert.are.same({['+'] = true}, literals)
         end)
 
@@ -541,7 +542,7 @@ context("Parser", function ( )
                 }
             }
             local ast, literals = parser.match(input)
-            assert.are.same(expected, ast)
+            assert.same_ast(expected, ast)
             assert.are.same({['.'] = true, ['0x'] = true}, literals)
         end)
 
@@ -612,7 +613,7 @@ context("Parser", function ( )
                 }
             }
             local ast, literals = parser.match(input)
-            assert.are.same(expected, ast)
+            assert.same_ast(expected, ast)
             assert.are.same({['.'] = true, ['0x'] = true}, literals)
         end)
 
@@ -641,7 +642,7 @@ context("Parser", function ( )
                 }
             }
             local ast, literals = parser.match(input)
-            assert.are.same(expected, ast)
+            assert.same_ast(expected, ast)
             assert.are.same({['(|'] = true}, literals)
         end)
 
@@ -683,7 +684,7 @@ context("Parser", function ( )
                 }
             }
             local ast, literals = parser.match(input)
-            assert.are.same(expected, ast)
+            assert.same_ast(expected, ast)
             assert.are.same({number = true, vector = true, string = true}, literals)
         end)
 
@@ -726,7 +727,7 @@ context("Parser", function ( )
                 }
             }
             local ast, literals = parser.match(input)
-            assert.are.same(expected, ast)
+            assert.same_ast(expected, ast)
             assert.are.same({number = true, vector = true, string = true}, literals)
         end)
 
@@ -736,7 +737,7 @@ context("Parser", function ( )
 
             local expected = require"test.expected.json.ast"
 
-            assert.are.same(expected, parser.match(input))
+            assert.same_ast(expected, parser.match(input))
         end)
 
         test("rule with semantic action", function()
@@ -808,7 +809,7 @@ context("Parser", function ( )
                     },
                 }
             }
-            assert.are.same(expected, parser.match(input))
+            assert.same_ast(expected, parser.match(input))
         end)
 
         test("rule with nested semantic action", function()
@@ -885,7 +886,7 @@ context("Parser", function ( )
                 }
             }
             local ast, literals = parser.match(input)
-            assert.are.same(expected, ast)
+            assert.same_ast(expected, ast)
             assert.are.same({[','] = true, ['.'] = true, [':'] = true}, literals)
         end)
 
@@ -909,7 +910,7 @@ context("Parser", function ( )
                 }
             }
             local ast, literals = parser.match(input)
-            assert.are.same(expected[1][2], ast[1][2])
+            assert.same_ast(expected[1][2], ast[1][2])
         end)
 
         test("scaped quotes I", function()
@@ -922,7 +923,7 @@ context("Parser", function ( )
                 },
             }
             local ast, literals = parser.match(input)
-            assert.are.same(expected, ast)
+            assert.same_ast(expected, ast)
             assert.are.same({['"'] = true}, literals)
         end)
     
@@ -952,7 +953,7 @@ context("Parser", function ( )
                 }
             }
             local ast, literals = parser.match(input)
-            assert.are.same(expected, ast)
+            assert.same_ast(expected, ast)
             assert.are.same({["'"] = true, ['"'] = true}, literals)
         end)
 
@@ -972,7 +973,7 @@ context("Parser", function ( )
                     }
                 },
             }
-            assert.are.same(expected, parser.match(input))
+            assert.same_ast(expected, parser.match(input))
         end)
     
         test("class with closing square bracket", function()

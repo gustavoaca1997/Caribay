@@ -27,6 +27,13 @@ function Set:is_same(set1)
     return ret
 end
 
+function Set:is_empty()
+    for k in pairs(self) do
+        return false
+    end
+    return true
+end
+
 function Set:add(key)
     local set = self:copy()
     set[key] = true
@@ -41,10 +48,16 @@ end
 
 function Set:union(set1)
     local set = self:copy()
-    for k, v in pairs(set1) do
+    for k, v in pairs(assert(set1)) do
         set[k] = set[k] or v
     end
     return set
+end
+
+function Set:union_without_key(set1, k)
+    local union = self:union(set1)
+    union[k] = nil
+    return union
 end
 
 function Set:disjoint(set1)
