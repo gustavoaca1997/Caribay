@@ -278,11 +278,83 @@ end
 ```
 
 ### Error Labels
-#### Manually inserted
+The result of an unsuccessful matching is a triple `nil, lab, errpos`, where `lab` is the label associated with the failure, and `errpos` is the input position being matched when `lab` was thrown.
+
+#### Manually inserted labels
 Use `^` operator.
 ```peg
 numbers <- ((INT / HEX / FLOAT)^ErrNumber)+
 ```
+
+#### Automatically inserted labels
+The generator will try to automatically create some error labels. In order to identify the safe places where Caribay can insert labels, the concept of unique lexical non-terminals is used: _a lexical non-terminal A is unique when it appears in the right-hand
+side of only one syntactical rule, and just once._
+
+An automatically inserted label will be named after its rule and the symbol annotated. See some examples of labels:
+
+- `s_NUMBER`: The symbol `NUMBER` in the rule of `s` is annotated with this label.
+- `assignment_=`: The symbol `=` in the rule of `assignment` is annotated with this label.
+- `conditional_IF_2`: A symbol `IF` in the rule of `conditional` is annotated with this label. The suffix `_2` means there is already another symbol `IF` in `conditional` annotated with the label `conditional_IF`.
+
+The label `EOF` is automatically generated for the cases where it is not possible to match the whole input. The label `fail` is thrown when Caribay was not able to generate an error label for that specific case (some optimizations are in the ToDo list of this project).
+
+The user can pass `true` as a third argument to `generator.gen` for enabling the **Unique Context Optimization** or **UCO** for incrementing the number of automatically inserted labels using more AST traversals. The reasoning behind this optimization is the following:
+
+_If the lexical non-terminal A is used more than once in
+grammar G but the set S of tokens that may occur immediately before an
+usage of A is unique, i.e., ∀s ∈ S we have that s may not occur immediately
+before the other usages of A, then we can mark this instance of A preceded
+by S as unique._
+
+##### Examples
+
+###### Example 1
+```peg
+s <- (print / assign)+
+assign <- ID '=' INT
+INT <- %d+
+print <- `print` ID
+```
+The labels automatically inserted without UCO are `assign_INT` and `print_ID`, while `assign_=` is also inserted when using UCO.
+
+`parser:match('x 10')` will throw `assign_=` when using UCO.
+
+`parser:match('x = print 2')` will throw `assign_INT` at position 5.
+
+`parser:match('print 2')` will throw `print_ID` at position 7.
+
+`parser:match('= x = 10')` will throw `fail` at position 1.
+
+###### Example 2
+```peg
+s <- 'a' 'c' / 'c' 'd'
+```
+
+Without UCO, only the label `s_c` is generated, while using UCO the label `s_d` is also generated.
+
+`parser:match('a d')` will throw `s_c` at position 2.
+
+`parser:match('c')` will throw `s_d` at position 2 when using UCO.
+
+###### Example 3
+```peg
+s <- (init / idx)+
+init <- VECTOR ID
+idx <- ID '.' INT
+
+keyword VECTOR <- 'vector' [1-9]
+INT <- %d+
+
+SKIP <- (' ' / '\n' / ';')*
+```
+
+The labels generated without UCO are `idx_INT` and `init_ID`, while using UCO the label `idx_.` is also generated.
+
+`parser:match('vector3D 2)` will throw `fail` without UCO or `idx_.` using UCO, at position 10.
+
+`parser:match('vector3 vector3D ;;.; vector3D.2')` will throw `EOF` at position 20.
+
+`parser:match('vector1 3dvector')` will throw `init_ID` at position 9.
 
 ___
 This project is part of the Google Summer of Code 2020. I am writing [some posts](https://dev.to/_gusgustavo/my-project-for-gsoc-2020-a-parser-generator-with-automatic-error-recovery-on-lpeg-label-3o2) about my journey building it.
