@@ -3,6 +3,15 @@ A PEG (Parsing Expression Grammar) Parser Generator built with LPeg(Label). The 
 
 Caribay makes easier to parse lexical symbols, comments, identifiers and keywords.
 
+## Table of contents
+1. [Installation](#installation)
+2. [Usage](#usage)
+3. [Syntax and examples](#syntax-and-examples)
+4. [Error Labels](#error-labels)
+    1. [Manually inserted labels](#manually-inserted-labels) 
+    2. [Automatically inserted labels](#automatically-inserted-labels)
+    3. [Recovery Rules](#recovery-rules)
+
 ## Installation
 You can install Caribay using [Luarocks](https://luarocks.org/):
 ```bash
@@ -14,7 +23,7 @@ You need to _require_ the module _src.generator_:
 ```lua
 local generator = require"caribay.generator"
 ```
-then you call the `gen` function passing a PEG as argument to generate an LPegLabel parser, which has a method `match` for matching:
+then you call the `gen` function passing a PEG as argument to generate an LPegLabel parser:
 ```lua
 local src = [[
     assign <- ID '=' number
@@ -22,8 +31,8 @@ local src = [[
     INT <- %d+
     FLOAT <- %d+ '.' %d+
 ]]
-local parser = generator.gen(src)
-parser:match[[     a_2     =   3.1416 ]]
+local match = generator.gen(src)
+match[[     a_2     =   3.1416 ]]
 ```
 
 ## Syntax and examples
@@ -277,16 +286,19 @@ function(subject, pos, closing, opening)
 end
 ```
 
-### Error Labels
+### Labels
+See [this section](#manually-inserted-labels)
+
+## Error Labels
 The result of an unsuccessful matching is a triple `nil, lab, errpos`, where `lab` is the label associated with the failure, and `errpos` is the input position being matched when `lab` was thrown.
 
-#### Manually inserted labels
+### Manually inserted labels
 Use `^` operator.
 ```peg
 numbers <- ((INT / HEX / FLOAT)^ErrNumber)+
 ```
 
-#### Automatically inserted labels
+### Automatically inserted labels
 The generator will try to automatically create some error labels. In order to identify the safe places where Caribay can insert labels, the concept of unique lexical non-terminals is used: _a lexical non-terminal A is unique when it appears in the right-hand
 side of only one syntactical rule, and just once._
 
@@ -306,9 +318,9 @@ usage of A is unique, i.e., ∀s ∈ S we have that s may not occur immediately
 before the other usages of A, then we can mark this instance of A preceded
 by S as unique._
 
-##### Examples
+#### Examples
 
-###### Example 1
+##### Example 1
 ```peg
 s <- (print / assign)+
 assign <- ID '=' INT
@@ -317,26 +329,26 @@ print <- `print` ID
 ```
 The labels automatically inserted without UCO are `assign_INT` and `print_ID`, while `assign_=` is also inserted when using UCO.
 
-`parser:match('x 10')` will throw `assign_=` when using UCO.
+`match('x 10')` will throw `assign_=` when using UCO.
 
-`parser:match('x = print 2')` will throw `assign_INT` at position 5.
+`match('x = print 2')` will throw `assign_INT` at position 5.
 
-`parser:match('print 2')` will throw `print_ID` at position 7.
+`match('print 2')` will throw `print_ID` at position 7.
 
-`parser:match('= x = 10')` will throw `fail` at position 1.
+`match('= x = 10')` will throw `fail` at position 1.
 
-###### Example 2
+##### Example 2
 ```peg
 s <- 'a' 'c' / 'c' 'd'
 ```
 
 Without UCO, only the label `s_c` is generated, while using UCO the label `s_d` is also generated.
 
-`parser:match('a d')` will throw `s_c` at position 2.
+`match('a d')` will throw `s_c` at position 2.
 
-`parser:match('c')` will throw `s_d` at position 2 when using UCO.
+`match('c')` will throw `s_d` at position 2 when using UCO.
 
-###### Example 3
+##### Example 3
 ```peg
 s <- (init / idx)+
 init <- VECTOR ID
@@ -350,14 +362,130 @@ SKIP <- (' ' / '\n' / ';')*
 
 The labels generated without UCO are `idx_INT` and `init_ID`, while using UCO the label `idx_.` is also generated.
 
-`parser:match('vector3D 2)` will throw `fail` without UCO or `idx_.` using UCO, at position 10.
+`match('vector3D 2)` will throw `fail` without UCO or `idx_.` using UCO, at position 10.
 
-`parser:match('vector3 vector3D ;;.; vector3D.2')` will throw `EOF` at position 20.
+`match('vector3 vector3D ;;.; vector3D.2')` will throw `EOF` at position 20.
 
-`parser:match('vector1 3dvector')` will throw `init_ID` at position 9.
+`match('vector1 3dvector')` will throw `init_ID` at position 9.
 
 ___
-This project is part of the Google Summer of Code 2020. I am writing [some posts](https://dev.to/_gusgustavo/my-project-for-gsoc-2020-a-parser-generator-with-automatic-error-recovery-on-lpeg-label-3o2) about my journey building it.
+### Recovery Rules
+`generator.gen` receives a fourth parameter called `create_recovery_rule`. If its value is `nil` or `false`, none recovery rule is created; if its value is `true`, the recovery rule consists of skipping tokens until the parser finds a token that can follow the pattern, this is also called the _panic technique_; otherwise, the function passed is used. 
+
+The function `create_recovery_rule` receives three arguments:
+- `generator`: _Generator_
+- `label`: _String_
+- `flw`: _Set_
+
+This functions is in charge of the logic for creating recovery rules when automatically adding a label. 
+
+You can use this implementation of the panic technique as an example:
+```lua
+local function panic_technique(generator, label, flw)    
+    local recovery_sym_str = Symbol:new(label, 'syn_sym')
+
+    -- Transform set into a LPeg Ordered Choice
+    local flw_ord_choice
+    for token_key in pairs(flw) do
+        if token_key ~= '__$' then
+            local ast_token = annotator.key_to_token(token_key, tag)
+            local pattern = generator:to_lpeg(ast_token, recovery_sym_str)
+            if flw_ord_choice then
+                flw_ord_choice = flw_ord_choice + pattern
+            else
+                flw_ord_choice = pattern
+            end
+        end
+    end
+
+    -- Eat Token
+    local eat_token = lp.P(1)
+
+    -- Create recovery rule: R[l] <- (!flw eatToken)*
+    return (-flw_ord_choice * eat_token)^0
+end
+```
+
+_TODO: explained what the user should know for implementing its own_ `create_recovery_rule` _function_.
+
+When calling `match` function, the user can pass a table as second argument which maps error labels to error messages. `generator.gen` returns the array of generated labels as a second returned value for helping to create this table. The returned value by `match` will be a table of _errors_ that are similar to this one:
+```lua
+{
+    line = 2,
+    col = 25,
+    msg = "Missing '=' in assignment",
+},
+```
+If no table is passed as second argument or no corresponding message is found, the `msg` field will be just the label.
+
+##### Example 4
+In this example we are going to generate recovery rules by using the panic technique.
+
+Here is the **grammar** we are going to use, which is very similar to the one from [Example 1](#example-1):
+```peg
+s <- (print / assign)+
+assign <- ID '=' (INT / ID)
+INT <- %d+
+FLOAT <- %d+ '.' %d+
+print <- `print` ID
+```
+
+Now we are going to generate our **parser**.
+
+```lua
+local match, labs_arr = generator.gen(src, nil, true, true)
+```
+
+`labs_arr` looks like this:
+```lua
+{'assign_=', 'assign_ord_exp', 'print_ID'}
+```
+
+Let's now define our table of **error messages**:
+
+```lua
+local terror = {
+    ['assign_='] = "Missing '=' in assignment",
+    ['assign_ord_exp'] = "RValue expected",
+    ['print_ID'] = "Valid identifier expected",
+    fail = 'Parsing failed',
+}
+```
+
+This string is going to be our **input**:
+```lua
+input = [[
+    x = 10
+    y   11
+    z =
+    print 2
+]]
+```
+
+Then, `match(input, terror)` is going to return the following table:
+```lua
+{
+    {
+        line = 2,
+        col = 25,
+        msg = "Missing '=' in assignment",
+    },
+    {
+        line = 4,
+        col = 21,
+        msg = "RValue expected",
+    },
+    {
+        line = 4,
+        col = 27,
+        msg = "Valid identifier expected",
+    },
+}
+```
 
 ## About the name
 The parser generator is called Caribay, the daughter of Zuhé (the Sun) and Chía (the Moon) from a legend of the Mirripuyes (an indigenous group from Mérida, Venezuela). Since Lua means "Moon" in Portuguese, the tool being the daughter of Lua sounded nice to me. Also, the legend involves the origin of five famous peaks from Mérida, so the name is related to "generating" things.
+
+___
+___
+This project is part of the Google Summer of Code 2020. I am writing [some posts](https://dev.to/_gusgustavo/my-project-for-gsoc-2020-a-parser-generator-with-automatic-error-recovery-on-lpeg-label-3o2) about my journey building it.

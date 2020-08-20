@@ -47,7 +47,15 @@ end
 -- Generator class
 local Generator = {}
 
-function Generator:new(actions, literals_map)
+function Generator:new(actions, literals_map, create_recovery_rule)
+    --[[
+        The function `create_recovery_rule` receives three arguments:
+            - `generator`: Generator
+            - `label`: String
+            - `flw`: Set
+        This functions is in charge of the logic for creating recovery rules when
+        `add_label` is called.
+    ]]
 
     -- Create new object
     local obj = {
@@ -57,7 +65,9 @@ function Generator:new(actions, literals_map)
         grammar = {},
         labels = {},
         manual_labels = {},
+        terror = {},
         literals_patterns = M.unique_token_prefix(literals_map),
+        create_recovery_rule = create_recovery_rule,
     }
 
     -- Inherit from `Generator`
@@ -111,6 +121,14 @@ end
 local function is_lex_sym_str(sym_str)
     return re.match(sym_str, "[A-Z][A-Z0-9_]* !.")
 end
+  
+function Generator:record (lab)
+    return (lp.Cp() * lp.Cc(lab)) / function (pos, lab)
+        
+        local line, col = re.calcline(self.subject, pos)
+        table.insert(self.errors, { line = line, col = col, msg = self.terror[lab] or lab })
+    end
+end
 
 ----------------------------------------------------------------------------
 --------------------------- Algorithm Unique -------------------------------
@@ -128,7 +146,7 @@ function Generator.unpack_lab_obj(lab_obj)
     return lab_obj.seq, lab_obj.after_u, lab_obj.flw, lab_obj.sym
 end
 
-function Generator:add_label(pattern, suf, lab_obj)
+function Generator:add_label(pattern, ast_exp, lab_obj)
     --[[
         Receives a parsing expression p to annotate and its associated F OLLOW set f lw.
         Function addlab associates a label l to p and also builds a recovery expression
@@ -136,9 +154,10 @@ function Generator:add_label(pattern, suf, lab_obj)
     ]]
 
     local _, _, flw, sym = Generator.unpack_lab_obj(lab_obj)
-
+    
     -- If this is not the first label with this name,
     -- append correct number.
+    local suf = ast_exp ~= 'ord_exp' and ast_exp[1] or 'ord_exp'
     local label = sym.sym_str .. '_' .. suf
     if self.labels[label] then
         local new_no = self.labels[label]+1
@@ -147,7 +166,13 @@ function Generator:add_label(pattern, suf, lab_obj)
     else
         self.labels[label] = 1
     end
-    -- print('add label', label)
+    
+    -- Create recovery rule, if recovery rules are enabled
+    if self.create_recovery_rule then
+        local sync_pattern = self:create_recovery_rule(label, flw)
+        self.grammar[label] = self:record(label) * sync_pattern
+    end
+
     return pattern + lp.T(label)
 end
 
@@ -171,19 +196,11 @@ function Generator:lab_exp(ast_exp, lab_obj)
     local annot = self.annot
     local first = annot:get_first(ast_exp)
     local tag = ast_exp.tag
-    local suf
+    local is_symbol = tag == 'literal' or tag == 'keyword' or tag == 'lex_sym' or tag == 'syn_sym'
+        local pattern = self:to_lpeg(ast_exp, sym)
 
-    --If it's a manually inserted label
-    if tag == 'literal' or tag == 'keyword' or tag == 'lex_sym' or tag == 'syn_sym' then
-        suf = ast_exp[1]
-    else
-        suf = tag
-    end
-
-    local pattern = self:to_lpeg(ast_exp, sym)
-
-    if not first['%e'] and seq and after_u then
-        return self:add_label(pattern, suf, lab_obj)
+    if is_symbol and not first['%e'] and seq and after_u then
+        return self:add_label(pattern, ast_exp, lab_obj)
     elseif tag == 'seq_exp' then
         return self:lab_seq_exp(ast_exp, lab_obj)
     elseif tag == 'ord_exp' then
@@ -609,8 +626,58 @@ end
 ----------------------------------------------------------------------------
 ----------------------------------------------------------------------------
 
-M.gen = function (input, actions, use_unique_context)
-    local generator, annot = M.annotate(input, actions, use_unique_context)
+local function panic_technique(generator, label, flw)    
+    local recovery_sym_str = Symbol:new(label, 'syn_sym')
+
+    -- Transform set into a LPeg Ordered Choice
+    local flw_ord_choice
+    for token_key in pairs(flw) do
+        if token_key ~= '__$' then
+            local ast_token = annotator.key_to_token(token_key, tag)
+            local pattern = generator:to_lpeg(ast_token, recovery_sym_str)
+            if flw_ord_choice then
+                flw_ord_choice = flw_ord_choice + pattern
+            else
+                flw_ord_choice = pattern
+            end
+        end
+    end
+
+    -- Eat Token
+    local eat_token = lp.P(1)
+
+    -- Create recovery rule: R[l] <- (!flw eatToken)*
+    return (-flw_ord_choice * eat_token)^0
+end
+
+----------------------------------------------------------------------------
+----------------------------------------------------------------------------
+
+M.gen = function (input, actions, use_unique_context, create_recovery_rule)
+    --[[
+        This functions generate the parser from an `input` file. 
+
+        The table `actions` has functions to be called in the parser.
+
+        The boolean `use_unique_context` enables the Unique Context Optimizaton for
+        incrementing the number of automatically inserted labels.
+
+        The function `create_recovery_rule` receives three arguments:
+            - `generator`: Generator
+            - `label`: String
+            - `flw`: Set
+        This functions is in charge of the logic for creating recovery rules when
+        `add_label` is called. If its value is `nil` or `false, none recovery rule
+        is created; if its value is `true`, the recovery rule consists of skipping
+        tokens until the parser finds a token that can follow `p`; otherwise, the
+        function passed is used.
+    ]]
+
+    if create_recovery_rule == true then
+        create_recovery_rule = panic_technique
+    end
+
+    local generator, annot = M.annotate(input, actions, use_unique_context, create_recovery_rule)
 
     for _, rule in ipairs(annot.ast) do
         generator:to_lpeg(rule)
@@ -618,18 +685,37 @@ M.gen = function (input, actions, use_unique_context)
     generator:gen_auxiliars()
 
     local parser = lp.P(generator.grammar) * (lp.P(-1) + lp.T('EOF') )
+
     local labs_arr = generator:get_labs_arr()
 
-    return parser, labs_arr
+    local match = function(subject, terror)
+        --[[
+            `terror`: Table that maps Error Labels to Error Messages
+        ]]
+        generator.subject = subject
+        generator.terror = terror or {}
+        generator.errors = {}
+
+        local ret = {parser:match(subject)}
+        if #generator.errors > 0 then
+            return generator.errors
+        else
+            return table.unpack(ret)
+        end
+    end
+    return match, labs_arr
 end
 
-M.annotate = function(input, actions, use_unique_context)
+M.annotate = function(input, actions, use_unique_context, create_recovery_rule)
+    --[[
+        Initializes the annotator and the generator.
+    ]]
     local ast, literals = parser.match(input)
-    local generator = Generator:new(actions, literals)
+    local generator = Generator:new(actions, literals, create_recovery_rule)
     local syms = generator:get_syms(ast)
     generator:validate_syms(ast)
 
-    local annot = annotator.annotate(ast, syms, generator.init, use_unique_context)
+    local annot = annotator.annotate(ast, syms, generator.init, use_unique_context, create_recovery_rule)
     generator.annot = annot
     return generator, annot
 end

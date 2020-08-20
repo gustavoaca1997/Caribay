@@ -1,3 +1,5 @@
+--TODO: Test follow sets for lexical elements
+
 local function create_first(obj)
     local ret = {
         ID = {

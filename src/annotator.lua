@@ -40,12 +40,32 @@ local function token_to_key(exp)
     end
 end
 
+local function key_to_token(key)
+    local token_str
+    local tag
+    local fst_char = string.sub(key, 1, 1)
+    if fst_char == "'" then
+        tag = 'literal'
+        token_str = string.sub(key, 2, -2)
+    elseif fst_char == '`' then
+        tag = 'keyword'
+        token_str = string.sub(key, 2, -2)
+    else
+        tag = 'lex_sym'
+        token_str = key
+    end
+    return {
+        tag = tag,
+        token_str,
+    }
+end
+
 ----------------------------------------------------------------------------
 ----------------------------Annotator Constructors--------------------------
 ----------------------------------------------------------------------------
 local Annotator = {}
 
-function Annotator:new(ast, syms, init)
+function Annotator:new(ast, syms, init, recovery_rules_enabled)
     --[[
         This class helps to run Algorithm Unique
 
@@ -62,6 +82,7 @@ function Annotator:new(ast, syms, init)
         last = {},
         ocs = {},   -- ocurrences
         is_uni_token_memo = {},  -- cache of is_uni_token
+        recovery_rules_enabled = recovery_rules_enabled,
     }
 
     -- Inherit form `Annotator`
@@ -199,11 +220,15 @@ function Annotator:compute_seq_follow(exps, flw)
 end
 
 function Annotator:compute_follow(exp, flw)
-    if exp.tag == 'syn_sym' then
-        local syn = exp[1]
-        local union = self.follow[syn]:union(flw)
+    -- Compute FOLLOW sets for lexical elements only if recovery rules
+    -- are enabled.
+    local flw_for_lex = self.recovery_rules_enabled and (exp.tag == 'lex_sym' or exp.tag == 'keyword' or exp.tag == 'literal')
+
+    if exp.tag == 'syn_sym' or flw_for_lex then
+        local key = exp.tag == 'syn_sym' and exp[1] or token_to_key(exp)
+        local union = (self.follow[key] or Set:new{}):union(flw)
         union['%e'] = nil
-        self.follow[syn] = union
+        self.follow[key] = union
 
     elseif exp.tag == 'ord_exp' then
         for _, sub_exp in ipairs(exp) do
@@ -224,7 +249,6 @@ function Annotator:compute_follow(exp, flw)
         self:compute_follow(exp[1], flw)
     end
 end
-
 
 function Annotator:compute_all_follow()
     -- Initialize FOLLOW sets
@@ -260,6 +284,11 @@ end
 ----------------------------------------------------------------------------
 ----------------------------------------------------------------------------
 ----------------------------------------------------------------------------
+
+--[[
+    The LAST set is the set of possible "last tokens" or "tails"
+    of the pattern. It is like the opposite of the FIRST set.
+]]
 
 function Annotator:get_seq_last(exps)
     if not exps or #exps == 0 then
@@ -312,6 +341,10 @@ end
 
 ----------------------------------------------------------------------------
 ----------------------------------------------------------------------------
+--[[
+    The CONTEXT set is the set of tokens that can come before
+    the pattern. It is like the opposite of the FOLLOW set.
+]]
 
 function Annotator:compute_seq_context(exps, bfr)
     if not exps or #exps == 0 then
@@ -543,8 +576,8 @@ end
 
 
 return {
-    annotate = function(ast, syms, init, use_unique_context)
-        local annot = Annotator:new(ast, syms, init)
+    annotate = function(ast, syms, init, use_unique_context, recovery_rules_enabled)
+        local annot = Annotator:new(ast, syms, init, recovery_rules_enabled)
         annot:compute_all_first()
         annot:compute_all_follow()
         annot:compute_all_terminal_ocs()
@@ -559,4 +592,5 @@ return {
     end,
     END_TOKEN = END_TOKEN,
     token_to_key = token_to_key,
+    key_to_token = key_to_token,
 }

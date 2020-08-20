@@ -47,8 +47,8 @@ M.same_ast = function(state, arguments)
 end
 
 M.has_lab = function(state, arguments)
-    local parser, input, expected_lab, expected_pos = table.unpack(arguments)
-    local ou, lab, pos = parser:match(input)
+    local match, input, expected_lab, expected_pos = table.unpack(arguments)
+    local ou, lab, pos = match(input)
     if out then
         error(input .. ": Not error thrown")
     elseif expected_lab ~= lab then
