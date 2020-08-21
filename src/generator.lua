@@ -638,7 +638,8 @@ local function panic_technique(generator, label, flw)
     -- Transform set into a LPeg Ordered Choice
     local flw_ord_choice
     for token_key in pairs(flw) do
-        if token_key ~= '__$' then
+        if token_key ~= '__$' and token_key ~= '%e' then
+            if token_key == '%e' then error(label) end
             local ast_token = annotator.key_to_token(token_key, tag)
             local pattern = generator:to_lpeg(ast_token, recovery_sym_str)
             if flw_ord_choice then

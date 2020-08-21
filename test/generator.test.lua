@@ -1250,6 +1250,99 @@ context("Generator", function()
                 assert.are.same(expected, errors)
             end)
         end)
+
+        test("from JSON grammar", function()
+            local f = assert(io.open("./test/expected/json/grammar.peg", "r"))
+            local src = f:read("a")
+            local match, labs_arr = generator.gen(src, nil, true, true)
+            f:close()
+
+            assert.are.same({
+                'array_]',
+                'object_}', 
+                'pair_value',
+            }, labs_arr)
+    
+            local f1 = assert(io.open("./test/expected/json/examples/example1.json"))
+            local input = f1:read("a")
+            local expected = require"test.expected.json.examples.output1"
+            assert.same_ast(expected, match(input))
+            f1:close()
+        end)
+    
+        test("from Lua grammar", function()
+            local f = assert(io.open("./test/expected/lua/grammar.peg", "r"))
+            local src = f:read("a")
+            local match, labs_arr = generator.gen(src, {
+                check_eq = function(subject, pos, closing, opening)
+                    return #closing[1] == #opening[1]
+                end,
+            }, true, true)
+            f:close()
+    
+            --TODO: Test `labs_arr`
+
+            -- Case 1:
+            local input = [[
+                _x_10 = 10
+                return _x_10;
+            ]]
+            local expected = require"test.expected.lua.examples.output1"
+            local ast, err, pos = match(input)
+            assert.same_ast(expected, ast)
+    
+            -- Case 2:
+            input = [==[
+                return [=[aa]=]
+            ]==]
+    
+            expected = {
+                tag = 'program',
+                {
+                    tag = 'chunk',
+                    {
+                        tag = 'laststat',
+                        { tag = 'token', 'return' },
+                        {
+                            tag = 'explist',
+                            {
+                                tag = 'exp',
+                                { tag = 'STRING', '[=[aa]=]' }
+                            }
+                        }
+                    }
+                }
+            }
+            assert.same_ast(expected, match(input))
+    
+            -- Case 3:
+            input = [[
+                return 'abc' .. "def"
+            ]]
+            ast, err, pos = match(input)
+            if not ast then print('abcdef', re.calcline(input, pos)) end
+            assert.is.truthy(match(input))
+    
+            -- Case 4:
+            input = [[x = 4 + x/2]]
+            expected = require"test.expected.lua.examples.output2"
+            -- src_parser.show_ast(match(input))
+            assert.same_ast(expected, match(input))
+    
+            -- Other cases:
+            local folder_name = [[./test/lua5.1-tests/]]
+            for file_name in lfs.dir(folder_name) do
+                if file_name ~= '.' and file_name ~= '..' then
+                    f = assert(io.open(folder_name .. file_name, "r"))
+                    local input = assert(f:read("a"))
+    
+                    local ast, err, pos = match(input)
+                    if not ast then print('\n' .. folder_name .. file_name, err, re.calcline(input, pos) ) end
+                    assert.is.truthy(ast)
+                    f:close()
+                end
+            end
+        end)
     end)
 
     test("ensures unique token prefix", function()
