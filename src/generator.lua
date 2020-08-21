@@ -2,7 +2,7 @@ local re = require"relabel"
 local lp = require"lpeglabel"
 local parser = require"caribay.parser"
 local annotator = require"caribay.annotator"
-local Symbol = require"Symbol"
+local Symbol = require"caribay.Symbol"
 
 lp.locale(lp) -- adds locale entries into 'lpeglabel' table
 ----------------------------------------------------------------------------
@@ -704,7 +704,7 @@ M.gen = function (input, actions, use_unique_context, create_recovery_rule)
 
         local ret = {parser:match(subject)}
         if #generator.errors > 0 then
-            return generator.errors
+            return false, generator.errors
         else
             return table.unpack(ret)
         end

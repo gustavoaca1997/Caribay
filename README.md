@@ -408,7 +408,7 @@ end
 
 _TODO: explained what the user should know for implementing its own_ `create_recovery_rule` _function_.
 
-When calling `match` function, the user can pass a table as second argument which maps error labels to error messages. `generator.gen` returns the array of generated labels as a second returned value for helping to create this table. The returned value by `match` will be a table of _errors_ that are similar to this one:
+When calling `match` function, the user can pass a table as second argument which maps error labels to error messages. `generator.gen` returns the array of generated labels as a second returned value for helping to create this table. The returned value by `match` will be `false` and a table of _errors_ that are similar to this one:
 ```lua
 {
     line = 2,
@@ -462,7 +462,7 @@ input = [[
 ]]
 ```
 
-Then, `match(input, terror)` is going to return the following table:
+Then, `match(input, terror)` is going to return `false` and the following table:
 ```lua
 {
     {

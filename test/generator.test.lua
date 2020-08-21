@@ -953,40 +953,20 @@ context("Generator", function()
         test("default ID rule , a keyword and a manually inserted label II", function()
             local src = [[
                 s <- (print / assign)+
-                assign <- ID '=' (INT / FLOAT / BIN)^ErrorNumber
+                assign <- ID '=' ('0b' BIN / INT / FLOAT)^ErrorNumber
                 INT <- %d+
                 FLOAT <- %d+ '.' %d+
                 BIN <- ('0' / '1')+
                 print <- `print` ID
             ]]
             local match, labs_arr = generator.gen(src, nil, true)
-            assert.are.same({'ErrorNumber', 'assign_=', 'print_ID'}, labs_arr)
+            assert.are.same({'ErrorNumber', 'assign_=', 'assign_BIN', 'print_ID'}, labs_arr)
             
-            local input = 'x = 10 print x printx = 20 print printx'
-            local expected = {
-                tag = 's',
-                {
-                    tag = 'assign',
-                    { tag = 'ID', 'x' },
-                    { tag = 'INT', '10' },
-                },
-                {
-                    tag = 'print',
-                    { tag = 'token', 'print' },
-                    { tag = 'ID', 'x' },
-                },
-                {
-                    tag = 'assign',
-                    { tag = 'ID', 'printx' },
-                    { tag = 'INT', '20' },
-                },
-                {
-                    tag = 'print',
-                    { tag = 'token', 'print' },
-                    { tag = 'ID', 'printx' },
-                },
-            }
-            assert.same_ast(expected, match(input))
+            local input = [[
+                x = 0b0011101 print x printx = 20 print printx
+            ]]
+            print(match(input))
+            assert.is_truthy(match(input))
 
             assert.has_lab(match, 'x 10', 'assign_=', 3)
             assert.has_lab(match, 'x = print 2', 'ErrorNumber', 5)
@@ -1116,7 +1096,8 @@ context("Generator", function()
 
                 }
 
-                local errors = match(input, terror)
+                local b, errors = match(input, terror)
+                assert.is_false(b)
                 assert.are.same(expected_errors, errors)
             end)
 
@@ -1203,8 +1184,9 @@ context("Generator", function()
                     },
 
                 }
-
-                assert.are.same(expected, match(input, terror))
+                local b, errors = match(input, terror)
+                assert.is_false(b)
+                assert.are.same(expected, errors)
             end)
 
             test("keyword rules and its own SKIP rule", function()
@@ -1263,7 +1245,9 @@ context("Generator", function()
                         msg = 'idx_.',
                     }
                 }
-                assert.are.same(expected, match(input))
+                local b, errors = match(input)
+                assert.is_false(b)
+                assert.are.same(expected, errors)
             end)
         end)
     end)

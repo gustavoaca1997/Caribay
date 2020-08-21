@@ -2,7 +2,7 @@
     This module helps Generator class to annotate its grammar.
 ]]
 
-local Set = require"Set"
+local Set = require"caribay.Set"
 
 -- Sub annotators
 local sub_annotator = {}
