@@ -908,6 +908,92 @@ context("Generator", function()
             assert.has_lab(match, '= x = 10', 'fail', 1)
         end)
 
+        test("default ID rule, a keyword and a manually inserted label I", function()
+            local src = [[
+                s <- (print / assign)+
+                assign <- ID '=' INT^ErrorInt
+                INT <- %d+
+                print <- `print` ID
+            ]]
+            local match, labs_arr = generator.gen(src, nil, true)
+
+            local input = 'x = 10 print x printx = 20 print printx'
+            local expected = {
+                tag = 's',
+                {
+                    tag = 'assign',
+                    { tag = 'ID', 'x' },
+                    { tag = 'INT', '10' },
+                },
+                {
+                    tag = 'print',
+                    { tag = 'token', 'print' },
+                    { tag = 'ID', 'x' },
+                },
+                {
+                    tag = 'assign',
+                    { tag = 'ID', 'printx' },
+                    { tag = 'INT', '20' },
+                },
+                {
+                    tag = 'print',
+                    { tag = 'token', 'print' },
+                    { tag = 'ID', 'printx' },
+                },
+            }
+            assert.same_ast(expected, match(input))
+
+            assert.are.same({'ErrorInt', 'assign_=', 'print_ID'}, labs_arr)
+            assert.has_lab(match, 'x 10', 'assign_=', 3)
+            assert.has_lab(match, 'x = print 2', 'ErrorInt', 5)
+            assert.has_lab(match, 'print 2', 'print_ID', 7)
+            assert.has_lab(match, '= x = 10', 'fail', 1)
+        end)
+
+        test("default ID rule , a keyword and a manually inserted label II", function()
+            local src = [[
+                s <- (print / assign)+
+                assign <- ID '=' (INT / FLOAT / BIN)^ErrorNumber
+                INT <- %d+
+                FLOAT <- %d+ '.' %d+
+                BIN <- ('0' / '1')+
+                print <- `print` ID
+            ]]
+            local match, labs_arr = generator.gen(src, nil, true)
+            assert.are.same({'ErrorNumber', 'assign_=', 'print_ID'}, labs_arr)
+            
+            local input = 'x = 10 print x printx = 20 print printx'
+            local expected = {
+                tag = 's',
+                {
+                    tag = 'assign',
+                    { tag = 'ID', 'x' },
+                    { tag = 'INT', '10' },
+                },
+                {
+                    tag = 'print',
+                    { tag = 'token', 'print' },
+                    { tag = 'ID', 'x' },
+                },
+                {
+                    tag = 'assign',
+                    { tag = 'ID', 'printx' },
+                    { tag = 'INT', '20' },
+                },
+                {
+                    tag = 'print',
+                    { tag = 'token', 'print' },
+                    { tag = 'ID', 'printx' },
+                },
+            }
+            assert.same_ast(expected, match(input))
+
+            assert.has_lab(match, 'x 10', 'assign_=', 3)
+            assert.has_lab(match, 'x = print 2', 'ErrorNumber', 5)
+            assert.has_lab(match, 'print 2', 'print_ID', 7)
+            assert.has_lab(match, '= x = 10', 'fail', 1)
+        end)
+
         test("keyword rules and its own SKIP rule", function()
             local src = [[
                 s <- (init / idx)+
@@ -1030,7 +1116,6 @@ context("Generator", function()
 
                 }
 
-                print('epale')
                 local errors = match(input, terror)
                 assert.are.same(expected_errors, errors)
             end)

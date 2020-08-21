@@ -176,12 +176,13 @@ function Generator:add_label(pattern, ast_exp, lab_obj)
     return pattern + lp.T(label)
 end
 
-function Generator:lab_exp(ast_exp, lab_obj)
+function Generator:lab_exp(ast_exp, lab_obj, already_annotated)
     --[[
         Annotates the right-hand side, a
         parsing expression, of each syntactical rule of the grammar.
 
         ast_exp:    an AST expression.
+        already_annotated: if this node is already annotated.
 
         lab_obj is an object with following fields:
         seq:        a boolean value indicating whether the current concatenation have already
@@ -197,21 +198,22 @@ function Generator:lab_exp(ast_exp, lab_obj)
     local first = annot:get_first(ast_exp)
     local tag = ast_exp.tag
     local is_symbol = tag == 'literal' or tag == 'keyword' or tag == 'lex_sym' or tag == 'syn_sym'
-        local pattern = self:to_lpeg(ast_exp, sym)
 
-    if is_symbol and not first['%e'] and seq and after_u then
+    if not already_annotated and is_symbol and not first['%e'] and seq and after_u then
+        local pattern = self:to_lpeg(ast_exp, sym)
         return self:add_label(pattern, ast_exp, lab_obj)
     elseif tag == 'seq_exp' then
-        return self:lab_seq_exp(ast_exp, lab_obj)
+        return self:lab_seq_exp(ast_exp, lab_obj, already_annotated)
     elseif tag == 'ord_exp' then
-        return self:lab_ord_exp(ast_exp, lab_obj)
+        return self:lab_ord_exp(ast_exp, lab_obj, already_annotated)
     elseif tag == 'star_exp' then
-        return self:lab_star_exp(ast_exp[1], lab_obj)
+        return self:lab_star_exp(ast_exp[1], lab_obj, already_annotated)
     elseif tag == 'throw_exp' then
         local label = assert(ast_exp.label)
         self:insert_manual_label(label)
-        return self:lab_exp(ast_exp[1], lab_obj) + lp.T(label)
+        return self:lab_exp(ast_exp[1], lab_obj, true) + lp.T(label)
     else
+        local pattern = self:to_lpeg(ast_exp, sym)
         return pattern
     end
 end
@@ -219,6 +221,8 @@ end
 function Generator:lab_seq_exp(seq_arr, lab_obj)
     --[[
         Annotates a sequencial expression.
+        already_annotated: if this node is already annotated.
+
     ]]
 
     local seq, after_u, flw, sym = Generator.unpack_lab_obj(lab_obj)
@@ -248,9 +252,11 @@ function Generator:lab_seq_exp(seq_arr, lab_obj)
     end
 end
 
-function Generator:lab_ord_exp(ord_arr, lab_obj)
+function Generator:lab_ord_exp(ord_arr, lab_obj, already_annotated)
     --[[
         Annotates an ordered choice.
+        already_annotated: if this node is already annotated.
+
     ]]
     local seq, after_u, flw, sym = Generator.unpack_lab_obj(lab_obj)
 
@@ -270,7 +276,7 @@ function Generator:lab_ord_exp(ord_arr, lab_obj)
         local ord_first = annot:get_ord_first(ord_arr)
         local pattern = px + py
 
-        if seq and not ord_first['%e'] and after_u then
+        if seq and not ord_first['%e'] and after_u and not already_annotated then
             return self:add_label(pattern, 'ord_exp', lab_obj)
         else
             return pattern
